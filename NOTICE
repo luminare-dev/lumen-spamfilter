@@ -1,0 +1,27 @@
+lumen-spamfilter
+Copyright 2026 Paul Pasaurek
+
+The source code in this repository is licensed under Apache-2.0 (see the
+LICENSE file). That licence covers the code only.
+
+The names "Luminare Development" and "Luminare", the Luminare logo and mark,
+the name and logo of this project, the README header images, the social
+preview image and all files in docs/brand/ are not licensed under Apache-2.0
+or under any other licence in this repository. No permission is granted to
+use them, except as required for reasonable and customary use in describing
+the origin of the work and reproducing the content of this NOTICE file.
+
+The images in docs/brand/ contain text set in the Sora typeface, converted to
+outlines. Sora is Copyright 2019 The Sora Project Authors and is licensed
+under the SIL Open Font License, Version 1.1 (https://openfontlicense.org).
+The font keeps its own licence.
+
+Rspamd, Dovecot and Pigeonhole, Postfix
+This repository contains no code of Rspamd, Dovecot, Pigeonhole or Postfix.
+It writes configuration files and Sieve scripts for them; those projects keep
+their own licences. Not affiliated with or endorsed by any of them.
+
+KeyHelp
+Not affiliated with or endorsed by Keyweb AG. KeyHelp is a registered
+trademark of Keyweb AG and is named only to describe what this project works
+with.
