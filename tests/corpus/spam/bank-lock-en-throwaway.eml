@@ -1,0 +1,12 @@
+From: "Online Banking" <alerts@banking-alert-fake.sbs>
+To: <user@example.com>
+Subject: Final notice: your card has been locked
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Your card has been locked after three failed attempts.
+Confirm your details immediately to restore access. Enter your card number and PIN on the
+secure page below.
+
+https://banking-alert-fake.sbs/restore

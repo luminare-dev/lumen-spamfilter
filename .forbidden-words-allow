@@ -18,3 +18,6 @@ scripts/set_byline.py | placeholder | prints the names of the placeholders to fi
 LICENSE | sell | the licence grants the right to "sell copies" of the software
 lumen_spamfilter/defaults.py | * | rule data: the brand names, spam words and phishing phrases the filter matches
 lumen_spamfilter/catalog.py | * | rule descriptions quote the spam wording each rule detects
+tests/corpus/* | * | synthetic spam and ham test messages: they quote the wording the rules must detect
+tests/corpus/* | email | synthetic sender addresses on made-up spam domains (.invalid and obviously fake names)
+tests/test_generator.py | * | test inputs: the brand names and obfuscated words the patterns must match

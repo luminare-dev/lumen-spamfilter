@@ -1,0 +1,121 @@
+# Expectations for tests/corpus (scripts/corpus_run.py). Every message is synthetic.
+#
+# expect = "spam": the Rspamd action must be add header (score at least 6, below reject 15)
+# expect = "ham":  the action must be no action (score below the greylist score 4)
+# dkim:  sign with a key the test DNS publishes for the From domain (default true)
+# spf_ip: the sending address; inside 198.51.100.0/24 passes SPF, 203.0.113.0/24 fails
+# symbols / not_symbols: rules that must (not) be in the result
+
+[[message]]
+file = "spam/pharma-obfuscated-personalised.eml"
+expect = "spam"
+symbols = ["LUMEN_OBFUSCATED_TERM", "LUMEN_SUBJECT_RCPT_DOMAIN", "LUMEN_BODY_RCPT_DOMAIN_GREETING",
+           "LUMEN_PHARMA_STRONG", "LUMEN_FROM_TLD_HIGH"]
+
+[[message]]
+file = "spam/pharma-zero-width.eml"
+expect = "spam"
+symbols = ["LUMEN_ZERO_WIDTH_IN_WORD", "LUMEN_OBFUSCATED_TERM", "LUMEN_PHARMA_STRONG"]
+
+[[message]]
+file = "spam/pharma-plain-throwaway.eml"
+expect = "spam"
+symbols = ["LUMEN_PHARMA_STRONG", "LUMEN_PHARMA_SUBJECT", "LUMEN_SUBJECT_RCPT_DOMAIN", "LUMEN_FROM_TLD_HIGH",
+           "LUMEN_AUTH_ON_THROWAWAY", "LUMEN_URL_TLD_HIGH"]
+not_symbols = ["LUMEN_OBFUSCATED_TERM"]
+
+[[message]]
+file = "spam/pharma-domain-greeting.eml"
+rcpt = "user@example.net"
+expect = "spam"
+symbols = ["LUMEN_SUBJECT_RCPT_DOMAIN", "LUMEN_BODY_RCPT_DOMAIN_GREETING", "LUMEN_OBFUSCATED_TERM"]
+
+[[message]]
+file = "spam/brand-bank-lock.eml"
+expect = "spam"
+symbols = ["LUMEN_BRAND_SPOOF", "LUMEN_PHISH_ACCOUNT_LOCK", "LUMEN_PHISH_URGENT_VERIFY", "LUMEN_URL_BRAND_LOOKALIKE"]
+
+[[message]]
+file = "spam/brand-insurer-refund.eml"
+expect = "spam"
+symbols = ["LUMEN_BRAND_SPOOF", "LUMEN_PHISH_REFUND"]
+
+[[message]]
+file = "spam/brand-google-verify.eml"
+expect = "spam"
+symbols = ["LUMEN_BRAND_SPOOF", "LUMEN_PHISH_ACCOUNT_LOCK", "LUMEN_URL_USERINFO"]
+
+[[message]]
+file = "spam/crypto-wallet.eml"
+expect = "spam"
+symbols = ["LUMEN_BRAND_SPOOF", "LUMEN_PHISH_CRYPTO_WALLET", "LUMEN_URL_BRAND_LOOKALIKE"]
+
+[[message]]
+file = "spam/paypal-lock-de.eml"
+expect = "spam"
+symbols = ["LUMEN_BRAND_SPOOF", "LUMEN_PHISH_ACCOUNT_LOCK", "LUMEN_URL_BRAND_LOOKALIKE"]
+
+[[message]]
+file = "spam/bank-lock-en-throwaway.eml"
+expect = "spam"
+symbols = ["LUMEN_PHISH_ACCOUNT_LOCK", "LUMEN_PHISH_CREDENTIALS", "LUMEN_FROM_TLD_HIGH"]
+
+[[message]]
+file = "ham/newsletter-html.eml"
+expect = "ham"
+not_symbols = ["LUMEN_PHARMA_STRONG", "LUMEN_OBFUSCATED_TERM", "LUMEN_ZERO_WIDTH_IN_WORD"]
+
+[[message]]
+file = "ham/payment-receipt.eml"
+expect = "ham"
+not_symbols = ["LUMEN_BRAND_SPOOF"]
+
+[[message]]
+file = "ham/code-hosting-notification.eml"
+expect = "ham"
+not_symbols = ["LUMEN_PHISH_ACCOUNT_LOCK", "LUMEN_BRAND_SPOOF"]
+
+[[message]]
+file = "ham/shipping-notice.eml"
+expect = "ham"
+
+[[message]]
+file = "ham/personal-de.eml"
+expect = "ham"
+dkim = false
+not_symbols = ["LUMEN_PHARMA_STRONG", "LUMEN_OBFUSCATED_TERM"]
+
+[[message]]
+file = "ham/personal-en.eml"
+expect = "ham"
+dkim = false
+not_symbols = ["LUMEN_OBFUSCATED_TERM"]
+
+[[message]]
+file = "ham/bank-statement-verified.eml"
+expect = "ham"
+symbols = ["LUMEN_ALLOW_VERIFIED"]
+
+[[message]]
+file = "ham/insurer-newsletter.eml"
+expect = "ham"
+not_symbols = ["LUMEN_BRAND_SPOOF"]
+
+[[message]]
+file = "policy/blocked-sender.eml"
+expect = "spam"
+symbols = ["LUMEN_BLOCK_DOMAIN"]
+
+[[message]]
+file = "policy/allowlisted-verified.eml"
+expect = "ham"
+symbols = ["LUMEN_ALLOW_VERIFIED"]
+
+[[message]]
+file = "policy/allowlisted-spoofed.eml"
+expect = "spam"
+dkim = false
+spf_ip = "203.0.113.5"
+dmarc = "reject"
+symbols = ["LUMEN_PHISH_ACCOUNT_LOCK"]
+not_symbols = ["LUMEN_ALLOW_VERIFIED"]

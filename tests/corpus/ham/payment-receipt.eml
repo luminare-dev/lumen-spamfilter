@@ -1,0 +1,17 @@
+From: "Example Pay" <service@pay.example.net>
+To: <user@example.com>
+Subject: Ihre Zahlung an Example Bücherladen wurde bestätigt
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Hallo,
+
+Sie haben 23,90 an Example Bücherladen gezahlt. Die Zahlung wurde bestätigt.
+
+Transaktionscode: 7KX20391AB
+Datum: 18. November 2026
+
+Die Details finden Sie in Ihrem Konto: https://pay.example.net/activity
+
+Example Pay

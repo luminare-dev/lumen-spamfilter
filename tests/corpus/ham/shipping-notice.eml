@@ -1,0 +1,15 @@
+From: "Example Paket" <versand@paket.example.com>
+To: <user@example.com>
+Subject: Ihre Sendung ist unterwegs
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Guten Tag,
+
+Ihre Sendung 00340434161234567890 wurde heute an uns übergeben und ist unterwegs.
+Voraussichtliche Zustellung: Donnerstag zwischen 10 und 14 Uhr.
+
+Sendungsverfolgung: https://paket.example.com/verfolgen?nr=00340434161234567890
+
+Ihr Example Paket Team

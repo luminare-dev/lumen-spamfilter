@@ -1,0 +1,15 @@
+From: "MetaMask Support" <support@wallet-sync.invalid>
+To: <user@example.com>
+Subject: Your wallet will be disabled
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Dear user,
+
+due to a network upgrade all wallets must be synchronized. Please verify your wallet immediately
+by entering your secret recovery phrase. Unverified wallets will be disabled.
+
+https://metamask-wallet-sync.invalid/validate
+
+MetaMask Support

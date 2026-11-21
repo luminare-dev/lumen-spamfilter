@@ -1,0 +1,14 @@
+From: "PayPal" <service@paypal-kontoschutz.invalid>
+To: <user@example.com>
+Subject: Ihr PayPal-Konto wurde eingeschränkt
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+<html><body>
+<p>Guten Tag,</p>
+<p>Ihr Konto wurde eingeschränkt, weil wir ungewöhnliche Aktivitäten festgestellt haben.
+Bitte bestätigen Sie umgehend Ihre Angaben.</p>
+<p><a href="https://paypal-kontoschutz.invalid/de/login">Konto wiederherstellen</a></p>
+<p>Ihr PayPal-Team</p>
+</body></html>

@@ -1,0 +1,36 @@
+From: "Example Magazin" <newsletter@news.example.org>
+To: <user@example.com>
+Subject: Ihr Wochenrückblick: Gärten im Herbst
+MIME-Version: 1.0
+List-Unsubscribe: <https://news.example.org/unsubscribe?u=4711>, <mailto:unsubscribe@news.example.org>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Content-Type: multipart/alternative; boundary="b1"
+
+--b1
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Gärten im Herbst
+
+Das Potenzial alter Obstsorten wird oft unterschätzt. Unsere Autorin zeigt, wie Sie
+Apfelbäume richtig schneiden, und stellt drei Bücher vor, die man am liebsten im Bett liest.
+
+Weiterlesen: https://news.example.org/artikel/herbstgarten
+
+Sie erhalten diese Nachricht, weil Sie den Wochenrückblick abonniert haben.
+Abbestellen: https://news.example.org/unsubscribe?u=4711
+
+--b1
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+<html><body>
+<h1>Gärten im Herbst</h1>
+<p>Das Potenzial alter Obstsorten wird oft unterschätzt. Unsere Autorin zeigt, wie Sie
+Apfel&shy;bäume richtig schneiden, und stellt drei Bücher vor, die man am liebsten im Bett liest.</p>
+<p><a href="https://news.example.org/artikel/herbstgarten">Weiterlesen</a></p>
+<p style="font-size:12px">Sie erhalten diese Nachricht, weil Sie den Wochenrückblick abonniert haben.
+<a href="https://news.example.org/unsubscribe?u=4711">Abbestellen</a></p>
+</body></html>
+
+--b1--

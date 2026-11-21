@@ -1,0 +1,16 @@
+From: "ExampleHub" <notifications@hub.example.com>
+To: <user@example.com>
+Subject: [demo/project] Account locked after password reset (Issue #42)
+MIME-Version: 1.0
+List-ID: demo/project <project.demo.hub.example.com>
+List-Unsubscribe: <https://hub.example.com/notifications/unsubscribe/42>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+octocat-example opened an issue in demo/project:
+
+After a password reset the account stays locked until the session cookie is cleared.
+Steps to reproduce: reset the password, log in, verify the e-mail address, reload the page.
+
+View it on ExampleHub: https://hub.example.com/demo/project/issues/42
+You are receiving this because you are subscribed to this thread.

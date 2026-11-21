@@ -1,0 +1,28 @@
+# Configuration the corpus test runs with: the built-in rules plus test brands and lists on the
+# reserved example domains.
+version = 1
+
+[rspamd]
+local_domains = ["example.com", "example.net"]
+
+[[brands]]
+name = "Example Bank"
+domains = ["example.com"]
+url_tokens = ["examplebank"]
+
+[[brands]]
+name = "Example Pay"
+domains = ["example.net"]
+
+[[brands]]
+name = "Example Krankenkasse"
+domains = ["example.org"]
+
+[allow]
+verified_domains = ["bank.example.com"]
+
+[block]
+domains = ["blocked.example.net"]
+
+[[mailbox]]
+address = "user@example.com"

@@ -1,0 +1,15 @@
+From: "Example Bank" <info@bank.example.com>
+To: <user@example.com>
+Subject: Ihr Kontoauszug für November ist verfügbar
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Guten Tag,
+
+Ihr Kontoauszug für November steht im Online-Banking bereit.
+Hinweis: Wir fragen Sie niemals per E-Mail nach PIN oder TAN.
+
+Zum Online-Banking: https://bank.example.com/login
+
+Ihre Example Bank

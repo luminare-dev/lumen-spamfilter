@@ -1,0 +1,13 @@
+From: "Example Bank" <alerts@bank.example.com>
+To: <user@example.com>
+Subject: Ihre Karte wurde gesperrt
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Guten Tag,
+
+Ihre Karte wurde nach drei falschen PIN-Eingaben gesperrt. Bitte bestätigen Sie umgehend
+in der App, dass Sie das waren, dann geben wir die Karte wieder frei.
+
+Ihre Example Bank

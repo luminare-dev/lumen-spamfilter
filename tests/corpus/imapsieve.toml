@@ -1,0 +1,8 @@
+# Used by the shellcheck job to render the IMAPSieve pipe scripts.
+version = 1
+
+[[mailbox]]
+address = "user@example.com"
+
+[training]
+imapsieve = true
