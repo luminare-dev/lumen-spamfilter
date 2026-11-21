@@ -112,6 +112,11 @@ def brand_regex(name: str) -> str:
     return f"/{START}{tolerant(name)}(?:$|[^a-z0-9äöüß])/iu"
 
 
+def domain_suffix_regex(domain: str) -> str:
+    """The domain and all its subdomains."""
+    return f"/(?:^|\\.){domain_regex(domain)}$/i"
+
+
 def maps(cfg: dict) -> dict[str, list[str]]:
     brand_domains = sorted({d for b in cfg["brands"] for d in b["domains"]})
     return {
@@ -119,9 +124,9 @@ def maps(cfg: dict) -> dict[str, list[str]]:
         "brand_domains.map": brand_domains,
         "tlds_high.map": [f"/\\.{domain_regex(t)}$/i" for t in cfg["tlds"]["high"]],
         "tlds_medium.map": [f"/\\.{domain_regex(t)}$/i" for t in cfg["tlds"]["medium"]],
-        "allow_verified_domains.map": cfg["allow"]["verified_domains"],
+        "allow_verified_domains.map": [domain_suffix_regex(d) for d in cfg["allow"]["verified_domains"]],
         "block_senders.map": cfg["block"]["senders"],
-        "block_domains.map": cfg["block"]["domains"],
+        "block_domains.map": [domain_suffix_regex(d) for d in cfg["block"]["domains"]],
     }
 
 
@@ -139,10 +144,11 @@ def multimap_rules(cfg: dict) -> list[tuple[str, list[tuple[str, str]]]]:
                                  ("map", m("tlds_high.map")), ("regexp", "true")]),
         ("LUMEN_FROM_TLD_MEDIUM", [("type", '"selector"'), ("selector", ucl_str("from('mime'):domain")),
                                    ("map", m("tlds_medium.map")), ("regexp", "true")]),
-        ("LUMEN_ALLOW_LISTED", from_mime + [("filter", '"email:domain:tld"'),
-                                            ("map", m("allow_verified_domains.map"))]),
+        ("LUMEN_ALLOW_LISTED", [("type", '"selector"'), ("selector", ucl_str("from('mime'):domain")),
+                                ("map", m("allow_verified_domains.map")), ("regexp", "true")]),
         ("LUMEN_BLOCK_SENDER", from_mime + [("filter", '"email:addr"'), ("map", m("block_senders.map"))]),
-        ("LUMEN_BLOCK_DOMAIN", from_mime + [("filter", '"email:domain:tld"'), ("map", m("block_domains.map"))]),
+        ("LUMEN_BLOCK_DOMAIN", [("type", '"selector"'), ("selector", ucl_str("from('mime'):domain")),
+                                ("map", m("block_domains.map")), ("regexp", "true")]),
     ]
 
 
