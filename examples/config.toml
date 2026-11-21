@@ -1,0 +1,84 @@
+# lumen-spamfilter configuration (TOML). Installed as /etc/lumen-spamfilter/config.toml.
+# After a change:  lumen-spamfilter check  ->  lumen-spamfilter diff  ->  lumen-spamfilter apply --write
+# The settings editor (editor/settings.html) edits this file in the browser and shows the
+# generated Rspamd and Sieve files. docs/configuration.md describes every setting.
+version = 1
+
+[rspamd]
+# Domains hosted on this server. Subjects such as "example.com, Ihr Rezept wartet" are flagged.
+# The domains of the [[mailbox]] entries below are added automatically.
+local_domains = ["example.com"]
+# Upper limit for the sum of all content rules (the allow and block lists are not capped).
+# Keep it below the reject score (15 on KeyHelp) so that only other evidence leads to a reject.
+group_max_score = 12.0
+# Rspamd's add_header score (KeyHelp: 6). A per-mailbox threshold equal to this uses the action.
+add_header_score = 6.0
+# Use the built-in brand list (banks, payment services, insurers, parcel services, wallets).
+default_brands = true
+
+# Change the score of any rule (docs/rules.md lists them).
+[scores]
+# LUMEN_BRAND_SPOOF = 4.5
+
+[terms]
+# Extra words, matched obfuscation-tolerant like the built-in ones.
+strong = []
+weak = []
+subject = []
+
+# Add your own brands, or more domains to a built-in brand (same name).
+# [[brands]]
+# name = "Example Bank"
+# domains = ["bank.example.com"]
+# url_tokens = ["examplebank"]
+
+[tlds]
+extra_high = []
+extra_medium = []
+remove = []
+
+[allow]
+# From domains that are trusted when DMARC passes (aligned SPF or DKIM). Subdomains included.
+verified_domains = []
+
+[block]
+senders = []
+domains = []
+
+# Defaults for every [[mailbox]].
+[delivery]
+action = "junk"        # junk (file into folder), redirect (to redirect_to), keep (no filing)
+folder = "Junk"
+threshold = "action"   # "action" = Rspamd's add header action (X-Spam-Status: Yes), or a score like 4.5
+digest = false
+
+[[mailbox]]
+address = "postmaster@example.com"
+
+# [[mailbox]]
+# address = "info@example.com"
+# threshold = 4.5
+# digest = true
+# allow_senders = ["friend@example.net", "example.org"]
+# block_senders = ["mailing@example.net"]
+
+# [[mailbox]]
+# address = "orders@example.com"
+# action = "redirect"
+# redirect_to = "spam@example.com"
+# keep_copy = false
+
+[training]
+enabled = true
+mailboxes = "configured"   # "configured" (the [[mailbox]] entries) or "all" mailboxes on the server
+spam_folders = ["Junk"]
+ham_folders = ["INBOX"]
+spam_mailboxes = []        # every message in these mailboxes is spam (spam traps, redirect targets)
+ham_min_age_days = 3
+spam_max_age_days = 60
+max_per_run = 500
+imapsieve = false          # learn when users move mail into or out of the spam folder
+
+[digest]
+from = "postmaster@example.com"
+time = "07:00"
