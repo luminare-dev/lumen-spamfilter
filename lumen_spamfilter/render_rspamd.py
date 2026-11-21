@@ -2,7 +2,10 @@
 
 All files go below Rspamd's $LOCAL_CONFDIR (/etc/rspamd on KeyHelp). Module snippets are written
 to override.d/, which KeyHelp leaves alone (it manages local.d/). Rspamd merges override.d with
-local.d per key, so the LUMEN_* rules sit next to KeyHelp's own rules without replacing them.
+local.d per rule name, so the LUMEN_* rules sit next to KeyHelp's own rules without replacing them.
+The group limits are the one exception: in groups.conf every group sits below the single key
+"group", so an override.d/groups.conf would replace all stock groups (and their scores). They go
+to local.d/groups.conf, which Rspamd merges (KeyHelp writes no such file).
 """
 
 from __future__ import annotations
@@ -171,7 +174,7 @@ def render(cfg: dict) -> dict[str, str]:
         out.append(_block(symbol, [("expression", ucl_str(expr))] + _meta(cfg, symbol) + [("policy", '"leave"')]))
     files["override.d/composites.conf"] = "\n".join(out)
 
-    files["override.d/groups.conf"] = header() + "\n" + "\n".join([
+    files["local.d/groups.conf"] = header() + "\n" + "\n".join([
         f"group {ucl_str(catalog.GROUP)} {{",
         '  description = "lumen-spamfilter content rules";',
         f"  max_score = {num(cfg['rspamd']['group_max_score'])};",

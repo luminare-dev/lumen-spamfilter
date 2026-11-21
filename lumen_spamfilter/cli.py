@@ -269,7 +269,7 @@ def uninstall_plan(lay: Layout, purge: bool) -> deploy.Plan:
             plan.changes.append(deploy.Change(p, None, deploy.FILE, old))
 
     for rel in ("override.d/regexp.conf", "override.d/multimap.conf", "override.d/composites.conf",
-                "override.d/groups.conf"):
+                "local.d/groups.conf"):
         rm(conf / rel)
     mapdir = conf / render_rspamd.MAP_DIR
     if mapdir.is_dir():

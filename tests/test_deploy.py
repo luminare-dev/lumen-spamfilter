@@ -94,7 +94,7 @@ class DeployTest(unittest.TestCase):
         self.assertNotIn("systemctl reload", self.s.calls())
 
     def test_foreign_file_is_a_conflict(self):
-        foreign = self.s.root / "etc/rspamd/override.d/groups.conf"
+        foreign = self.s.root / "etc/rspamd/override.d/composites.conf"
         foreign.parent.mkdir(parents=True)
         foreign.write_text("group mine {}\n")
         code, out = self.s.run("apply", "--write")

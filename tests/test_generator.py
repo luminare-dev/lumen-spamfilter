@@ -104,7 +104,8 @@ class RspamdRenderTest(unittest.TestCase):
         self.files = render_rspamd.render(self.cfg)
 
     def test_only_override_d(self):
-        self.assertTrue(all(k.startswith("override.d/") for k in self.files), list(self.files))
+        self.assertTrue(all(k.startswith("override.d/") or k == "local.d/groups.conf" for k in self.files),
+                        list(self.files))
         for text in self.files.values():
             self.assertIn(render_rspamd.MARKER, text.splitlines()[0])
 

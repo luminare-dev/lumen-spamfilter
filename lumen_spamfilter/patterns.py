@@ -11,9 +11,9 @@ import re
 
 # Characters spammers insert into words: punctuation, spaces, soft hyphen and zero-width characters.
 SEP = r"[\s\-_.*·•|~+\x{00AD}\x{200B}-\x{200D}\x{2060}\x{FEFF}]"
-# Only the invisible ones (for LUMEN_ZERO_WIDTH_IN_WORD; U+200C is left out, Persian and other
-# scripts use it inside words).
-INVISIBLE = r"[\x{00AD}\x{200B}\x{200D}\x{2060}\x{FEFF}]"
+# Only the invisible ones (for LUMEN_ZERO_WIDTH_IN_WORD). The soft hyphen U+00AD is left out (German
+# mailings hyphenate long words with &shy;), and so is U+200C (Persian and other scripts use it).
+INVISIBLE = r"[\x{200B}\x{200D}\x{2060}\x{FEFF}]"
 # A consumed boundary in front of a word (no look-behind).
 START = r"(?:^|[^a-z0-9äöüß])"
 WORD_CHARS = r"[a-z0-9äöüß]"

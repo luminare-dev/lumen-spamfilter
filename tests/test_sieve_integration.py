@@ -59,9 +59,9 @@ CASES = [
     ("b", "news@example.org", "Yes, score=9.00", ["store message in folder: INBOX"]),
     ("b", "a@blocked.invalid", None, ["store message in folder: Junk"]),
     ("b", "x@example.net", "No, score=0.10", ["store message in folder: Junk"]),
-    ("c", "s@spam.invalid", "Yes, score=8.00", ["redirect message to: spam@example.com"]),
+    ("c", "s@spam.invalid", "Yes, score=8.00", ["redirect message to: <spam@example.com>"]),
     ("c", "s@spam.invalid", "No, score=1.00", ["store message in folder: INBOX"]),
-    ("d", "s@spam.invalid", "Yes, score=8.00", ["redirect message to: spam@example.com",
+    ("d", "s@spam.invalid", "Yes, score=8.00", ["redirect message to: <spam@example.com>",
                                                 "store message in folder: Spam"]),
     ("spam", "s@spam.invalid", "Yes, score=8.00", ["store message in folder: INBOX"]),
 ]

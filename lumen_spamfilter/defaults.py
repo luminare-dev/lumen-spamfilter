@@ -118,7 +118,7 @@ PHISHING = {
     ],
     "LUMEN_PHISH_ACCOUNT_LOCK": [
         [r"(?:ihr|ihre|dein|deine|your)\s+(?:\S+\s+){0,2}(?:konto|kundenkonto|account|zugang|karte|kreditkarte|"
-         r"bankkarte|online-banking|wallet)\s+(?:\S+\s+){0,4}(?:gesperrt|eingeschr(?:ä|ae)nkt|deaktiviert|"
+         r"bankkarte|card|credit\s+card|bank\s+account|online-banking|profile|wallet)\s+(?:\S+\s+){0,4}(?:gesperrt|eingeschr(?:ä|ae)nkt|deaktiviert|"
          r"blockiert|suspendiert|suspended|locked|limited|restricted|disabled|on\s+hold)",
          r"(?:konto|karten)sperrung", r"sperrung\s+(?:ihres|ihrer|deines|deiner)\s+(?:kontos|karte|zugangs)"],
     ],
