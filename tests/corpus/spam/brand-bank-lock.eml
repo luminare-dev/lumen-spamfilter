@@ -2,16 +2,14 @@ From: "Sparkasse Kundenservice" <service@konto-sicherheit.invalid>
 To: <user@example.com>
 Subject: Wichtig: Ihr Konto wurde vorübergehend gesperrt
 MIME-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/html; charset=utf-8
 Content-Transfer-Encoding: 8bit
 
-Sehr geehrter Kunde,
-
-aus Sicherheitsgründen wurde Ihr Konto vorübergehend gesperrt.
-Bitte bestätigen Sie Ihre Daten innerhalb von 24 Stunden, sonst wird der Zugang dauerhaft deaktiviert.
-
-Jetzt freischalten: https://sparkasse-freischaltung.invalid/login
-
-Geben Sie dort Ihre PIN und TAN ein.
-
-Ihre Sparkasse
+<html><body>
+<p>Sehr geehrter Kunde,</p>
+<p>aus Sicherheitsgründen wurde Ihr Konto vorübergehend gesperrt.
+Bitte bestätigen Sie Ihre Daten innerhalb von 24 Stunden, sonst wird der Zugang dauerhaft deaktiviert.</p>
+<p><a href="https://sparkasse-freischaltung.invalid/login">Jetzt freischalten</a></p>
+<p>Geben Sie dort Ihre PIN und TAN ein.</p>
+<p>Ihre Sparkasse</p>
+</body></html>

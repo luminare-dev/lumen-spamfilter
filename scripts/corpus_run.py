@@ -9,7 +9,8 @@ What it does (CI job "corpus"; needs docker and openssl, nothing else):
      (valid DKIM, SPF pass, DMARC pass: the stock score goes negative);
   3. starts the pinned Rspamd image with host networking and scans every message with rspamc,
      twice: with the configured group limit (checks action and score as on a server) and without
-     it (checks that every expected rule matches; the limit drops rules once it is reached);
+     it and with --pass-all (checks that every expected rule matches; the limit drops rules once
+     it is reached, and Rspamd stops checking once a message reaches the reject score);
   4. compares the results with tests/corpus/corpus.toml and prints a table
      (and a job summary on GitHub).
 
@@ -185,7 +186,7 @@ def render_into(rs: Path, cfg: dict) -> None:
         os.chmod(p, 0o755 if p.is_dir() else 0o644)
 
 
-def scan(image: str, rs: Path, msgs: list[dict], key: Path, keep: bool) -> list[dict]:
+def scan(image: str, rs: Path, msgs: list[dict], key: Path, keep: bool, pass_all: bool = False) -> list[dict]:
     sh("docker", "rm", "-f", CONTAINER, check=False)
     mounts = ["-v", f"{rs / 'override.d'}:/etc/rspamd/override.d:ro",
               "-v", f"{rs / 'local.d' / 'groups.conf'}:/etc/rspamd/local.d/groups.conf:ro"]
@@ -202,7 +203,8 @@ def scan(image: str, rs: Path, msgs: list[dict], key: Path, keep: bool) -> list[
             raw = add_trace(m)
             if m.get("dkim", True):
                 raw = dkim_sign(raw, m["domain"], key)
-            out = sh("docker", "exec", "-i", CONTAINER, "rspamc", "-j", "-t", "60", "--ip", m["ip"],
+            extra = ["--pass-all"] if pass_all else []
+            out = sh("docker", "exec", "-i", CONTAINER, "rspamc", "-j", "-t", "60", *extra, "--ip", m["ip"],
                      "--helo", m["helo"], "--hostname", m["helo"], "--from", m["sender"], "--rcpt", m["rcpt"],
                      data=raw, check=False)
             try:
@@ -246,7 +248,7 @@ def main(argv: list[str] | None = None) -> int:
         render_into(work / "rspamd-default", cfg)
         render_into(work / "rspamd-uncapped", uncapped)
         real = scan(args.image, work / "rspamd-default", msgs, key, False)
-        rules = scan(args.image, work / "rspamd-uncapped", msgs, key, args.keep)
+        rules = scan(args.image, work / "rspamd-uncapped", msgs, key, args.keep, pass_all=True)
     finally:
         dns.terminate()
 
@@ -258,7 +260,8 @@ def main(argv: list[str] | None = None) -> int:
         lumen = sorted(s for s in res_u.get("symbols", {}) if s.startswith("LUMEN_"))
         results.append({"file": m["file"], "expect": m["expect"], "action": res.get("action"),
                         "score": res.get("score"), "symbols": res.get("symbols", {}),
-                        "uncapped_score": res_u.get("score"), "errors": errors})
+                        "uncapped_score": res_u.get("score"), "uncapped_symbols": sorted(res_u.get("symbols", {})),
+                        "errors": errors})
         rows.append(f"| {m['file']} | {m['expect']} | {res.get('action')} | {res.get('score', 0):.2f} | "
                     f"{', '.join(lumen)} | {'ok' if not errors else 'FAIL: ' + '; '.join(errors)} |")
     spam = [r for r in results if r["expect"] == "spam"]

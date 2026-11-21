@@ -2,14 +2,13 @@ From: "Google Account Team" <no-reply@account-check.invalid>
 To: <user@example.com>
 Subject: Action required: verify your account within 24 hours
 MIME-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/html; charset=utf-8
 Content-Transfer-Encoding: 8bit
 
-Hello,
-
-we noticed unusual activity. Your account has been temporarily limited.
-Please verify your identity within 24 hours to avoid permanent suspension.
-
-Verify now: https://accounts.google.com@account-check.invalid/verify
-
-Google Account Team
+<html><body>
+<p>Hello,</p>
+<p>we noticed unusual activity. Your account has been temporarily limited.
+Please verify your identity within 24 hours to avoid permanent suspension.</p>
+<p><a href="https://accounts.google.com@account-check.invalid/verify">Verify now</a></p>
+<p>Google Account Team</p>
+</body></html>
