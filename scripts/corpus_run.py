@@ -7,8 +7,10 @@ What it does (CI job "corpus"; needs docker and openssl, nothing else):
   2. creates a throwaway DKIM key and a zone with SPF, DKIM, DMARC, MX, A and PTR records for every
      synthetic sender, so the spam samples authenticate like spam from throwaway domains does
      (valid DKIM, SPF pass, DMARC pass: the stock score goes negative);
-  3. starts the pinned Rspamd image with host networking and scans every message with rspamc;
-  4. compares action, score and symbols with tests/corpus/corpus.toml and prints a table
+  3. starts the pinned Rspamd image with host networking and scans every message with rspamc,
+     twice: with the configured group limit (checks action and score as on a server) and without
+     it (checks that every expected rule matches; the limit drops rules once it is reached);
+  4. compares the results with tests/corpus/corpus.toml and prints a table
      (and a job summary on GitHub).
 
 Usage: python3 scripts/corpus_run.py [--image IMAGE] [--work DIR] [--keep]
@@ -149,15 +151,18 @@ def add_trace(m: dict) -> bytes:
 
 # --- run --------------------------------------------------------------------------------------
 
-def check(m: dict, res: dict) -> list[str]:
+def check(m: dict, res: dict, mode: str) -> list[str]:
+    """mode "action": the action and score; mode "rules": which rules matched."""
     errors = []
     score = res.get("score", 0.0)
     action = res.get("action", "?")
     syms = set(res.get("symbols", {}))
-    if m["expect"] == "spam" and score < 6:
-        errors.append(f"expected spam (score >= 6), got {score:.2f} ({action})")
-    if m["expect"] == "ham" and action != "no action":
-        errors.append(f"expected ham (no action, score < 4), got {score:.2f} ({action})")
+    if mode == "action":
+        if m["expect"] == "spam" and score < 6:
+            errors.append(f"expected spam (score >= 6), got {score:.2f} ({action})")
+        if m["expect"] == "ham" and action != "no action":
+            errors.append(f"expected ham (no action, score < 4), got {score:.2f} ({action})")
+        return errors
     for s in m.get("symbols", []):
         if s not in syms:
             errors.append(f"missing {s}")
@@ -165,6 +170,53 @@ def check(m: dict, res: dict) -> list[str]:
         if s in syms:
             errors.append(f"unexpected {s}")
     return errors
+
+
+def render_into(rs: Path, cfg: dict) -> None:
+    for rel, text in render_rspamd.render(cfg).items():
+        p = rs / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text, encoding="utf-8")
+    (rs / "override.d" / "options.inc").write_text(
+        "# corpus test only: resolve everything with scripts/corpus_dns.py\n"
+        f'dns {{\n  nameserver = ["127.0.0.1:{DNS_PORT}"];\n  timeout = 1s;\n  retransmits = 2;\n}}\n',
+        encoding="utf-8")
+    for p in [rs, *rs.rglob("*")]:
+        os.chmod(p, 0o755 if p.is_dir() else 0o644)
+
+
+def scan(image: str, rs: Path, msgs: list[dict], key: Path, keep: bool) -> list[dict]:
+    sh("docker", "rm", "-f", CONTAINER, check=False)
+    mounts = ["-v", f"{rs / 'override.d'}:/etc/rspamd/override.d:ro",
+              "-v", f"{rs / 'local.d' / 'groups.conf'}:/etc/rspamd/local.d/groups.conf:ro"]
+    sh("docker", "run", "-d", "--name", CONTAINER, "--network", "host", *mounts, image)
+    try:
+        deadline = time.time() + 180
+        while sh("docker", "exec", CONTAINER, "rspamc", "-t", "5", "stat", check=False).returncode != 0:
+            if time.time() > deadline:
+                print(sh("docker", "logs", CONTAINER, check=False).stderr.decode()[-4000:])
+                raise SystemExit("Rspamd did not start")
+            time.sleep(2)
+        out_list = []
+        for m in msgs:
+            raw = add_trace(m)
+            if m.get("dkim", True):
+                raw = dkim_sign(raw, m["domain"], key)
+            out = sh("docker", "exec", "-i", CONTAINER, "rspamc", "-j", "-t", "60", "--ip", m["ip"],
+                     "--helo", m["helo"], "--hostname", m["helo"], "--from", m["sender"], "--rcpt", m["rcpt"],
+                     data=raw, check=False)
+            try:
+                out_list.append(json.loads(out.stdout.decode()))
+            except json.JSONDecodeError:
+                out_list.append({"error": (out.stdout + out.stderr).decode()[:500]})
+        logs = sh("docker", "logs", CONTAINER, check=False).stderr.decode()
+        bad = [l for l in logs.splitlines() if "lumen" in l.lower() and ("error" in l.lower() or "cannot" in l.lower())]
+        if bad:
+            print("rspamd reported problems with the lumen rules:\n" + "\n".join(bad[-20:]))
+        return out_list
+    finally:
+        if not keep:
+            sh("docker", "rm", "-f", CONTAINER, check=False)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -177,19 +229,10 @@ def main(argv: list[str] | None = None) -> int:
 
     work = Path(args.work or tempfile.mkdtemp(prefix="lumen-corpus-"))
     work.mkdir(parents=True, exist_ok=True)
-    cfg = config.load(CORPUS / "config.toml")
-    rs = work / "rspamd"
-    for rel, text in render_rspamd.render(cfg).items():
-        p = rs / rel
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(text, encoding="utf-8")
-    (rs / "override.d" / "options.inc").write_text(
-        "# corpus test only: resolve everything with scripts/corpus_dns.py\n"
-        f'dns {{\n  nameserver = ["127.0.0.1:{DNS_PORT}"];\n  timeout = 1s;\n  retransmits = 2;\n}}\n',
-        encoding="utf-8")
-    for p in rs.rglob("*"):
-        os.chmod(p, 0o755 if p.is_dir() else 0o644)
     os.chmod(work, 0o755)
+    cfg = config.load(CORPUS / "config.toml")
+    uncapped = config.load(CORPUS / "config.toml")
+    uncapped["rspamd"]["group_max_score"] = 100.0
 
     key = work / "dkim.key"
     sh("openssl", "genrsa", "-out", str(key), "1024")
@@ -197,68 +240,44 @@ def main(argv: list[str] | None = None) -> int:
     msgs = prepare(tomllib.loads((CORPUS / "corpus.toml").read_text(encoding="utf-8"))["message"])
     (work / "zone.json").write_text(json.dumps(zone_for(msgs, base64.b64encode(der).decode()), indent=1),
                                     encoding="utf-8")
-
     dns = subprocess.Popen([sys.executable, str(ROOT / "scripts" / "corpus_dns.py"), str(work / "zone.json"),
                             "--port", str(DNS_PORT)])
-    sh("docker", "rm", "-f", CONTAINER, check=False)
     try:
-        sh("docker", "run", "-d", "--name", CONTAINER, "--network", "host",
-           "-v", f"{rs / 'override.d'}:/etc/rspamd/override.d:ro", args.image)
-        deadline = time.time() + 180
-        while True:
-            if sh("docker", "exec", CONTAINER, "rspamc", "-t", "5", "stat", check=False).returncode == 0:
-                break
-            if time.time() > deadline:
-                print(sh("docker", "logs", CONTAINER, check=False).stderr.decode()[-4000:])
-                print("Rspamd did not start", file=sys.stderr)
-                return 2
-            time.sleep(2)
-
-        results, failed = [], 0
-        rows = ["| message | expect | action | score | lumen rules | result |", "|---|---|---|---|---|---|"]
-        for m in msgs:
-            raw = add_trace(m)
-            if m.get("dkim", True):
-                raw = dkim_sign(raw, m["domain"], key)
-            out = sh("docker", "exec", "-i", CONTAINER, "rspamc", "-j", "-t", "60", "--ip", m["ip"],
-                     "--helo", m["helo"], "--hostname", m["helo"], "--from", m["sender"], "--rcpt", m["rcpt"],
-                     data=raw, check=False)
-            try:
-                res = json.loads(out.stdout.decode())
-            except json.JSONDecodeError:
-                res = {"error": (out.stdout + out.stderr).decode()[:500]}
-            errors = check(m, res) if "error" not in res else [res["error"]]
-            failed += bool(errors)
-            lumen = sorted(s for s in res.get("symbols", {}) if s.startswith("LUMEN_"))
-            results.append({"file": m["file"], "expect": m["expect"], "action": res.get("action"),
-                            "score": res.get("score"), "symbols": res.get("symbols", {}), "errors": errors})
-            rows.append(f"| {m['file']} | {m['expect']} | {res.get('action')} | {res.get('score', 0):.2f} | "
-                        f"{', '.join(lumen)} | {'ok' if not errors else 'FAIL: ' + '; '.join(errors)} |")
-        spam = [r for r in results if r["expect"] == "spam"]
-        ham = [r for r in results if r["expect"] == "ham"]
-        summary = (f"spam: {sum(not r['errors'] for r in spam)}/{len(spam)} passed, "
-                   f"ham: {sum(not r['errors'] for r in ham)}/{len(ham)} passed")
-        report = "\n".join(["## Corpus scan (Rspamd " + args.image.split("@")[0].split(":")[-1] + ")", "",
-                            summary, ""] + rows) + "\n"
-        print(report)
-        for r in results:
-            if r["errors"]:
-                detail = ", ".join(f"{k}={v.get('score', 0):.2f}" for k, v in sorted(r["symbols"].items()))
-                print(f"{r['file']}: {detail}\n")
-        if os.environ.get("GITHUB_STEP_SUMMARY"):
-            with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
-                fh.write(report)
-        if args.json:
-            Path(args.json).write_text(json.dumps(results, indent=1), encoding="utf-8")
-        return 1 if failed else 0
+        render_into(work / "rspamd-default", cfg)
+        render_into(work / "rspamd-uncapped", uncapped)
+        real = scan(args.image, work / "rspamd-default", msgs, key, False)
+        rules = scan(args.image, work / "rspamd-uncapped", msgs, key, args.keep)
     finally:
-        if failed_logs := sh("docker", "logs", CONTAINER, check=False).stderr.decode():
-            lines = [l for l in failed_logs.splitlines() if "lumen" in l.lower() or "error" in l.lower()]
-            if lines:
-                print("rspamd log (lumen and error lines):\n" + "\n".join(lines[-40:]))
-        if not args.keep:
-            sh("docker", "rm", "-f", CONTAINER, check=False)
         dns.terminate()
+
+    results, rows = [], ["| message | expect | action | score | lumen rules (uncapped run) | result |",
+                         "|---|---|---|---|---|---|"]
+    for m, res, res_u in zip(msgs, real, rules):
+        errors = [res["error"]] if "error" in res else check(m, res, "action")
+        errors += [res_u["error"]] if "error" in res_u else check(m, res_u, "rules")
+        lumen = sorted(s for s in res_u.get("symbols", {}) if s.startswith("LUMEN_"))
+        results.append({"file": m["file"], "expect": m["expect"], "action": res.get("action"),
+                        "score": res.get("score"), "symbols": res.get("symbols", {}),
+                        "uncapped_score": res_u.get("score"), "errors": errors})
+        rows.append(f"| {m['file']} | {m['expect']} | {res.get('action')} | {res.get('score', 0):.2f} | "
+                    f"{', '.join(lumen)} | {'ok' if not errors else 'FAIL: ' + '; '.join(errors)} |")
+    spam = [r for r in results if r["expect"] == "spam"]
+    ham = [r for r in results if r["expect"] == "ham"]
+    summary = (f"spam: {sum(not r['errors'] for r in spam)}/{len(spam)} passed, "
+               f"ham: {sum(not r['errors'] for r in ham)}/{len(ham)} passed")
+    version = args.image.split("@")[0].split(":")[-1]
+    report = "\n".join([f"## Corpus scan (Rspamd {version})", "", summary, ""] + rows) + "\n"
+    print(report)
+    for r in results:
+        if r["errors"]:
+            detail = ", ".join(f"{k}={v.get('score', 0):.2f}" for k, v in sorted(r["symbols"].items()))
+            print(f"{r['file']}: {detail}\n")
+    if os.environ.get("GITHUB_STEP_SUMMARY"):
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+            fh.write(report)
+    if args.json:
+        Path(args.json).write_text(json.dumps(results, indent=1), encoding="utf-8")
+    return 1 if any(r["errors"] for r in results) else 0
 
 
 if __name__ == "__main__":
