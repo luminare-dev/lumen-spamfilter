@@ -71,6 +71,11 @@ class PageTest(unittest.TestCase):
                              capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, res.stderr)
 
+    def test_rules_doc_is_current(self):
+        res = subprocess.run([sys.executable, str(ROOT / "scripts" / "build_docs.py"), "--check"],
+                             capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, res.stderr)
+
     def test_no_external_requests(self):
         html = PAGE.read_text(encoding="utf-8")
         self.assertNotRegex(html, r"""(?:src|href)\s*=\s*["']?(?:https?:)?//""")

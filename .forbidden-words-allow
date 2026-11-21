@@ -23,3 +23,4 @@ tests/corpus/* | email | synthetic sender addresses on made-up spam domains (.in
 tests/test_generator.py | * | test inputs: the brand names and obfuscated words the patterns must match
 editor/settings.html | * | the embedded copy of the rule data (brand names, spam words) the editor needs offline
 tests/test_editor_parity.py | * | a test configuration that extends a built-in brand
+docs/rules.md | * | the rule reference lists the brand names, spam words and phrases the rules match

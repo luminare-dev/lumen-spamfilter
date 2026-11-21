@@ -69,7 +69,7 @@ RULES: list[dict] = [
      "description": "Valid DKIM or DMARC on a high-risk top-level domain (cancels the stock authentication "
                     "bonus: a signature proves the sender, not that the sender is trustworthy)"},
     {"symbol": "LUMEN_URL_USERINFO", "score": 3.0, "group": GROUP, "kind": "regexp", "class": "url",
-     "description": "Link with user information before the host (https://bank.example.com@phish.invalid/)"},
+     "description": "Link with user information before the host (`https://bank.example.com@phish.invalid/`)"},
     # Allow and block lists
     {"symbol": "LUMEN_ALLOW_LISTED", "score": 0.0, "group": POLICY_GROUP, "kind": "multimap", "class": "policy",
      "description": "From domain is on the verified allowlist (informational until DMARC passes)"},
