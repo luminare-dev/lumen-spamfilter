@@ -1,0 +1,901 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; connect-src 'none'">
+<title>lumen-spamfilter settings</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #5b6470; --line: #d9dde3;
+  --accent: #3156c9; --accent-text: #ffffff; --bad: #b3261e; --bad-bg: #fdecea; --good: #1e6b3a; --code: #f0f2f5;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111418; --panel: #1a1e24; --text: #e6e9ee; --muted: #9aa3ae; --line: #2c323a;
+    --accent: #8aa4ff; --accent-text: #0d1020; --bad: #ff8a80; --bad-bg: #3a1d1b; --good: #7fd39b; --code: #22272e;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, sans-serif; }
+header { padding: 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header h1 { font-size: 20px; margin: 0 0 4px; }
+header p { margin: 0; color: var(--muted); }
+main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 16px; }
+@media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); } }
+section, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+h2 { font-size: 16px; margin: 0 0 8px; }
+label { display: block; margin: 8px 0 2px; font-weight: 600; font-size: 14px; }
+.hint { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+input[type=text], input[type=number], select, textarea {
+  width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit;
+}
+textarea { font-family: ui-monospace, monospace; font-size: 13px; min-height: 70px; }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text); cursor: pointer; }
+button.secondary { background: transparent; color: var(--accent); }
+button.danger { background: transparent; color: var(--bad); border-color: var(--bad); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mailbox { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin: 8px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+td, th { border-bottom: 1px solid var(--line); padding: 4px; text-align: left; vertical-align: top; }
+td input { width: 5.5em; }
+#errors { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); display: none; }
+#errors.show { display: block; }
+#ok { color: var(--good); font-weight: 600; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.tabs button { padding: 3px 8px; font-size: 13px; }
+pre { background: var(--code); border-radius: 6px; padding: 10px; overflow: auto; max-height: 70vh; font-size: 12px; white-space: pre; }
+.preview { position: sticky; top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>lumen-spamfilter settings</h1>
+  <p>Edit the configuration, check it and see the Rspamd and Sieve files it generates. Everything stays in this page: it makes no network requests. Save the file as /etc/lumen-spamfilter/config.toml and run <code>lumen-spamfilter check</code>, then <code>lumen-spamfilter apply --write</code>.</p>
+</header>
+<main>
+<div>
+  <section>
+    <h2>File</h2>
+    <div class="toolbar">
+      <input type="file" id="file" accept=".toml,text/plain" aria-label="Open a configuration file">
+      <button id="download">Download config.toml</button>
+      <button class="secondary" id="reset">Start from the example</button>
+    </div>
+    <label for="paste">Or paste a configuration</label>
+    <textarea id="paste" rows="4" placeholder="version = 1 ..."></textarea>
+    <div class="toolbar" style="margin-top:6px"><button class="secondary" id="load-paste">Load pasted text</button></div>
+  </section>
+  <section id="errors" role="alert"></section>
+  <section>
+    <h2>Rspamd</h2>
+    <label for="local_domains">Local domains (one per line)</label>
+    <textarea id="local_domains" data-list="rspamd.local_domains"></textarea>
+    <p class="hint">Subjects and greetings with these domains ("example.com, Ihr Rezept wartet") are flagged. Mailbox domains are added automatically.</p>
+    <div class="row">
+      <div><label for="group_max_score">Content rules limit</label><input type="number" step="0.5" id="group_max_score" data-num="rspamd.group_max_score"></div>
+      <div><label for="add_header_score">Rspamd add_header score</label><input type="number" step="0.5" id="add_header_score" data-num="rspamd.add_header_score"></div>
+      <div><label for="default_brands">Built-in brands</label><select id="default_brands" data-bool="rspamd.default_brands"><option value="true">use</option><option value="false">do not use</option></select></div>
+    </div>
+  </section>
+  <section>
+    <h2>Allow and block lists</h2>
+    <label for="allow">Allowed domains (DMARC must pass)</label><textarea id="allow" data-list="allow.verified_domains"></textarea>
+    <div class="row">
+      <div><label for="block_senders">Blocked addresses</label><textarea id="block_senders" data-list="block.senders"></textarea></div>
+      <div><label for="block_domains">Blocked domains</label><textarea id="block_domains" data-list="block.domains"></textarea></div>
+    </div>
+  </section>
+  <section>
+    <h2>Delivery defaults</h2>
+    <div class="row">
+      <div><label for="d_action">Action</label><select id="d_action" data-str="delivery.action"><option>junk</option><option>redirect</option><option>keep</option></select></div>
+      <div><label for="d_folder">Folder</label><input type="text" id="d_folder" data-str="delivery.folder"></div>
+      <div><label for="d_threshold">Threshold</label><input type="text" id="d_threshold" data-threshold="delivery.threshold"><p class="hint">"action" or a score such as 4.5</p></div>
+    </div>
+  </section>
+  <section>
+    <h2>Mailboxes</h2>
+    <div id="mailboxes"></div>
+    <button class="secondary" id="add-mailbox">Add mailbox</button>
+  </section>
+  <section>
+    <h2>Extra words and brands</h2>
+    <div class="row">
+      <div><label for="t_strong">Strong words</label><textarea id="t_strong" data-list="terms.strong"></textarea></div>
+      <div><label for="t_weak">Weak words</label><textarea id="t_weak" data-list="terms.weak"></textarea></div>
+    </div>
+    <label for="brands">Extra brands (one per line: Name = domain1, domain2)</label>
+    <textarea id="brands"></textarea>
+    <div class="row">
+      <div><label for="tld_high">Extra high-risk TLDs</label><textarea id="tld_high" data-list="tlds.extra_high"></textarea></div>
+      <div><label for="tld_remove">TLDs to leave out</label><textarea id="tld_remove" data-list="tlds.remove"></textarea></div>
+    </div>
+  </section>
+  <section>
+    <h2>Training and digest</h2>
+    <div class="row">
+      <div><label for="tr_enabled">Bayes training</label><select id="tr_enabled" data-bool="training.enabled"><option value="true">on</option><option value="false">off</option></select></div>
+      <div><label for="tr_imap">IMAPSieve learning</label><select id="tr_imap" data-bool="training.imapsieve"><option value="false">off</option><option value="true">on</option></select></div>
+      <div><label for="tr_boxes">Mailboxes to learn from</label><select id="tr_boxes" data-str="training.mailboxes"><option>configured</option><option>all</option></select></div>
+      <div><label for="dg_from">Digest sender</label><input type="text" id="dg_from" data-str="digest.from"></div>
+      <div><label for="dg_time">Digest time</label><input type="text" id="dg_time" data-str="digest.time"></div>
+    </div>
+  </section>
+  <section>
+    <h2>Scores</h2>
+    <p class="hint">Leave a field empty to keep the default. docs/rules.md explains every rule.</p>
+    <table><thead><tr><th>Rule</th><th>Default</th><th>Score</th></tr></thead><tbody id="scores"></tbody></table>
+  </section>
+</div>
+<div>
+  <div class="panel preview">
+    <h2>Preview <span id="ok"></span></h2>
+    <div class="tabs" id="tabs"></div>
+    <pre id="out"></pre>
+  </div>
+</div>
+</main>
+
+<script type="application/json" id="lumen-data">
+{"version":"0.1.0","marker":"lumen-spamfilter: generated file","map_dir":"override.d/lumen-spamfilter","map_ref":"${LOCAL_CONFDIR}/override.d/lumen-spamfilter","group":"lumen_spamfilter","policy_group":"lumen_policy","rules":[{"symbol":"LUMEN_PHARMA_STRONG","score":3.5,"group":"lumen_spamfilter","kind":"regexp","class":"pharma","description":"Pharma or erectile-dysfunction word in subject or body (obfuscation-tolerant)"},{"symbol":"LUMEN_PHARMA_WEAK_MULTI","score":1.5,"group":"lumen_spamfilter","kind":"regexp","class":"pharma","description":"At least three weaker pharma words in the body (pills, prescription, pharmacy, ...)"},{"symbol":"LUMEN_PHARMA_SUBJECT","score":2.0,"group":"lumen_spamfilter","kind":"regexp","class":"pharma","description":"Pharma word in the subject"},{"symbol":"LUMEN_OBFUSCATED_TERM","score":3.0,"group":"lumen_spamfilter","kind":"regexp","class":"pharma","description":"A watched word appears only in obfuscated form (r-ezeptfrei, rez_eptfrei, zero-width or look-alike characters)"},{"symbol":"LUMEN_ZERO_WIDTH_IN_WORD","score":1.5,"group":"lumen_spamfilter","kind":"regexp","class":"pharma","description":"Zero-width or invisible character between two letters in subject or body"},{"symbol":"LUMEN_SUBJECT_RCPT_DOMAIN","score":3.0,"group":"lumen_spamfilter","kind":"regexp","class":"personalised","description":"Subject starts or ends with one of the local (recipient) domains, as in \"example.com, Ihr Rezept wartet\""},{"symbol":"LUMEN_SUBJECT_DOMAIN_GREETING","score":1.0,"group":"lumen_spamfilter","kind":"regexp","class":"personalised","description":"Subject starts with any domain name followed by a comma"},{"symbol":"LUMEN_BODY_RCPT_DOMAIN_GREETING","score":1.5,"group":"lumen_spamfilter","kind":"regexp","class":"personalised","description":"Body greets a local domain instead of a person (\"Hallo example.com\")"},{"symbol":"LUMEN_BRAND_NAME","score":0.0,"group":"lumen_spamfilter","kind":"multimap","class":"brand","description":"Display name contains a known brand (informational, used by LUMEN_BRAND_SPOOF)"},{"symbol":"LUMEN_BRAND_DOMAIN","score":0.0,"group":"lumen_spamfilter","kind":"multimap","class":"brand","description":"From domain is one of the brands' own domains (informational)"},{"symbol":"LUMEN_BRAND_SPOOF","score":4.5,"group":"lumen_spamfilter","kind":"composite","class":"brand","description":"Display name claims a brand, but the From domain is not one of the brands' domains"},{"symbol":"LUMEN_URL_BRAND_TOKEN","score":0.0,"group":"lumen_spamfilter","kind":"regexp","class":"url","description":"A link host contains a brand-only token such as \"paypal\" (informational)"},{"symbol":"LUMEN_URL_BRAND_HOST","score":0.0,"group":"lumen_spamfilter","kind":"multimap","class":"url","description":"A link points to one of the brands' own domains (informational)"},{"symbol":"LUMEN_URL_BRAND_LOOKALIKE","score":3.0,"group":"lumen_spamfilter","kind":"composite","class":"url","description":"Link host contains a brand token, and no link goes to a real brand domain"},{"symbol":"LUMEN_PHISH_REFUND","score":3.0,"group":"lumen_spamfilter","kind":"regexp","class":"phishing","description":"Refund offer wording with an insurer or contribution context (\"Rückerstattung ... Krankenkasse ... beantragen\")"},{"symbol":"LUMEN_PHISH_ACCOUNT_LOCK","score":3.0,"group":"lumen_spamfilter","kind":"regexp","class":"phishing","description":"\"Your account/card has been locked/limited\" threats"},{"symbol":"LUMEN_PHISH_URGENT_VERIFY","score":2.0,"group":"lumen_spamfilter","kind":"regexp","class":"phishing","description":"Request to verify or confirm combined with a deadline or urgency"},{"symbol":"LUMEN_PHISH_CRYPTO_WALLET","score":3.5,"group":"lumen_spamfilter","kind":"regexp","class":"phishing","description":"Crypto wallet or recovery phrase combined with verify/synchronise wording"},{"symbol":"LUMEN_PHISH_CREDENTIALS","score":2.5,"group":"lumen_spamfilter","kind":"regexp","class":"phishing","description":"Asks to enter a PIN, TAN, password or recovery phrase"},{"symbol":"LUMEN_FROM_TLD_HIGH","score":2.0,"group":"lumen_spamfilter","kind":"multimap","class":"domain","description":"From domain is under a top-level domain from the high-risk list"},{"symbol":"LUMEN_FROM_TLD_MEDIUM","score":1.0,"group":"lumen_spamfilter","kind":"multimap","class":"domain","description":"From domain is under a top-level domain from the medium-risk list"},{"symbol":"LUMEN_URL_TLD_HIGH","score":1.5,"group":"lumen_spamfilter","kind":"regexp","class":"url","description":"A link points to a host under a high-risk top-level domain"},{"symbol":"LUMEN_AUTH_ON_THROWAWAY","score":1.0,"group":"lumen_spamfilter","kind":"composite","class":"domain","description":"Valid DKIM or DMARC on a high-risk top-level domain (cancels the stock authentication bonus: a signature proves the sender, not that the sender is trustworthy)"},{"symbol":"LUMEN_URL_USERINFO","score":3.0,"group":"lumen_spamfilter","kind":"regexp","class":"url","description":"Link with user information before the host (https://bank.example.com@phish.invalid/)"},{"symbol":"LUMEN_ALLOW_LISTED","score":0.0,"group":"lumen_policy","kind":"multimap","class":"policy","description":"From domain is on the verified allowlist (informational until DMARC passes)"},{"symbol":"LUMEN_ALLOW_VERIFIED","score":-8.0,"group":"lumen_policy","kind":"composite","class":"policy","description":"From domain is on the allowlist and DMARC passed (aligned SPF or DKIM)"},{"symbol":"LUMEN_BLOCK_SENDER","score":10.0,"group":"lumen_policy","kind":"multimap","class":"policy","description":"From address is on the blocklist"},{"symbol":"LUMEN_BLOCK_DOMAIN","score":10.0,"group":"lumen_policy","kind":"multimap","class":"policy","description":"From domain is on the blocklist"}],"classes":{"pharma":"Pharma and erectile-dysfunction spam with obfuscated words","personalised":"Subjects and greetings personalised with the recipient's domain","brand":"Display-name brand spoofing","phishing":"Phishing phrases","domain":"Throwaway domains","url":"Link tricks","policy":"Allow and block lists"},"defaults":{"strong":["rezeptfrei","ohne rezept","potenzmittel","potenzpille","potenzprobleme","potenzsteigerung","erektionsstörung","erektion","männer-medikament","medikamente für männer","länger im bett","standhaft im bett","leistung im bett","viagra","cialis","levitra","kamagra","sildenafil","tadalafil","vardenafil"],"weak":["pillen","potenz","rezept","apotheke","tabletten","diskret geliefert","diskrete lieferung","im bett","männer","lust"],"subject":["rezept","pillen","potenz","apotheke","männer"],"brands":[{"name":"Sparkasse","domains":["sparkasse.de","sparkasse.at","s-finanzgruppe.de"],"url_tokens":["sparkasse"]},{"name":"Volksbank","domains":["volksbank.de","volksbank.at","vr.de"],"url_tokens":["volksbank"]},{"name":"Raiffeisen","domains":["raiffeisen.at","raiffeisen.ch","raiffeisen.de","rbinternational.com"],"url_tokens":["raiffeisen"]},{"name":"Erste Bank","domains":["erstebank.at","sparkasse.at"],"url_tokens":["erstebank"]},{"name":"BAWAG","domains":["bawag.at","bawagpsk.com"],"url_tokens":["bawag"]},{"name":"Deutsche Bank","domains":["db.com","deutsche-bank.de"],"url_tokens":["deutsche-bank"]},{"name":"Commerzbank","domains":["commerzbank.de","commerzbank.com"],"url_tokens":["commerzbank"]},{"name":"Postbank","domains":["postbank.de"],"url_tokens":["postbank"]},{"name":"ING-DiBa","domains":["ing.de","ing.at","ing-diba.de"],"url_tokens":[]},{"name":"N26","domains":["n26.com"],"url_tokens":[]},{"name":"PayPal","domains":["paypal.com","paypal.de","paypal.at","paypal-communication.com"],"url_tokens":["paypal"]},{"name":"Klarna","domains":["klarna.com","klarna.de"],"url_tokens":["klarna"]},{"name":"Amazon","domains":["amazon.de","amazon.com","amazon.at","amazon.co.uk","amazon.fr","amazon.it","amazon.es","amazon.nl"],"url_tokens":[]},{"name":"Google","domains":["google.com","google.de","google.at","googlemail.com","youtube.com"],"url_tokens":[]},{"name":"Microsoft","domains":["microsoft.com","microsoftonline.com","outlook.com","office.com","live.com"],"url_tokens":[]},{"name":"Apple","domains":["apple.com","icloud.com","me.com"],"url_tokens":[]},{"name":"Netflix","domains":["netflix.com"],"url_tokens":["netflix"]},{"name":"DHL","domains":["dhl.de","dhl.com","dpdhl.com","deutschepost.de"],"url_tokens":[]},{"name":"DPD","domains":["dpd.de","dpd.at","dpd.com"],"url_tokens":[]},{"name":"Deutsche Post","domains":["deutschepost.de","dhl.de"],"url_tokens":[]},{"name":"Österreichische Post","domains":["post.at"],"url_tokens":[]},{"name":"AOK","domains":["aok.de"],"url_tokens":[]},{"name":"Techniker Krankenkasse","domains":["tk.de"],"url_tokens":[]},{"name":"Barmer","domains":["barmer.de"],"url_tokens":["barmer"]},{"name":"DAK-Gesundheit","domains":["dak.de"],"url_tokens":[]},{"name":"IKK classic","domains":["ikk-classic.de"],"url_tokens":[]},{"name":"KKH","domains":["kkh.de"],"url_tokens":[]},{"name":"ÖGK","domains":["gesundheitskasse.at"],"url_tokens":[]},{"name":"Gesundheitskasse","domains":["gesundheitskasse.at"],"url_tokens":[]},{"name":"FinanzOnline","domains":["bmf.gv.at"],"url_tokens":[]},{"name":"ELSTER","domains":["elster.de"],"url_tokens":[]},{"name":"Telekom","domains":["telekom.de","telekom.com","t-online.de"],"url_tokens":[]},{"name":"Vodafone","domains":["vodafone.de","vodafone.com"],"url_tokens":[]},{"name":"MetaMask","domains":["metamask.io","consensys.io","consensys.net"],"url_tokens":["metamask"]},{"name":"Ledger","domains":["ledger.com"],"url_tokens":[]},{"name":"Trezor","domains":["trezor.io"],"url_tokens":["trezor"]},{"name":"Coinbase","domains":["coinbase.com"],"url_tokens":["coinbase"]},{"name":"Binance","domains":["binance.com"],"url_tokens":["binance"]},{"name":"Kraken","domains":["kraken.com"],"url_tokens":[]},{"name":"Trust Wallet","domains":["trustwallet.com"],"url_tokens":["trustwallet"]},{"name":"Bitpanda","domains":["bitpanda.com"],"url_tokens":["bitpanda"]},{"name":"DocuSign","domains":["docusign.net","docusign.com"],"url_tokens":["docusign"]},{"name":"Dropbox","domains":["dropbox.com","dropboxmail.com"],"url_tokens":[]},{"name":"WhatsApp","domains":["whatsapp.com","facebookmail.com","meta.com"],"url_tokens":[]}],"phishing":{"LUMEN_PHISH_REFUND":[["r(?:ü|ue)ckerstattung","erstattung","r(?:ü|ue)ckzahlung","gutschrift","refund","reimbursement"],["krankenkasse","krankenversicherung","versicherung","gesundheitskasse","beitr(?:a|ä|ae)ge?","health\\s+insurance","insurance"],["beantragen","anfordern","best(?:ä|ae)tigen","steht\\s+ihnen\\s+zu","ausstehend","claim","erhalten\\s+sie","jetzt\\s+sichern","pending"]],"LUMEN_PHISH_ACCOUNT_LOCK":[["(?:ihr|ihre|dein|deine|your)\\s+(?:\\S+\\s+){0,2}(?:konto|kundenkonto|account|zugang|karte|kreditkarte|bankkarte|card|credit\\s+card|bank\\s+account|online-banking|profile|wallet)\\s+(?:\\S+\\s+){0,4}(?:gesperrt|eingeschr(?:ä|ae)nkt|deaktiviert|blockiert|suspendiert|suspended|locked|limited|restricted|disabled|on\\s+hold)","(?:konto|karten)sperrung","sperrung\\s+(?:ihres|ihrer|deines|deiner)\\s+(?:kontos|karte|zugangs)"]],"LUMEN_PHISH_URGENT_VERIFY":[["best(?:ä|ae)tigen","verifizieren","verifizierung","aktualisieren","reaktivieren","verify","confirm","validate","reactivate"],["innerhalb\\s+(?:von\\s+)?(?:24|48|72)\\s+stunden","within\\s+(?:24|48|72)\\s+hours","umgehend","unverz(?:ü|ue)glich","sofort","immediately","dringend","urgent","letzte\\s+(?:warnung|erinnerung|mahnung)","final\\s+(?:notice|warning)"]],"LUMEN_PHISH_CRYPTO_WALLET":[["wallet","seed[\\s-]?phrase","recovery[\\s-]phrase","secret\\s+recovery","wiederherstellungsphrase","private\\s+key","ledger\\s+live","krypto-?wallet","crypto\\s+wallet"],["verify","verifizieren","validate","validieren","synchroni[sz]e","synchronisieren","best(?:ä|ae)tigen","confirm","reactivate","migrate","migrieren","aktualisieren"]],"LUMEN_PHISH_CREDENTIALS":[["(?:geben|tragen)\\s+sie\\s+(?:ihre?n?\\s+)?(?:pin|tan|passwort|kennwort|zugangsdaten|seed|kartennummer)","enter\\s+your\\s+(?:password|pin|seed|recovery\\s+phrase|card\\s+number)","(?:pin|tan|passwort|zugangsdaten)\\s+(?:eingeben|best(?:ä|ae)tigen)"]]},"tlds_high":["invalid","top","icu","sbs","cfd","cyou","buzz","rest","bond","click","quest","monster","lol","mom","autos","boats","beauty","hair","skin","makeup","homes","yachts","motorcycles","cam","gq","tk","ml","cf","ga","work","fit","loan","win","bid","date","racing","review","stream","download","men","party","trade","science","accountant","faith","cricket","zip","mov"],"tlds_medium":["xyz","shop","online","site","website","space","fun","pw","club","link","best","life","live","today","digital","email","store"]},"patterns":{"SEP":"[\\s\\-_.*·•|~+\\x{00AD}\\x{200B}-\\x{200D}\\x{2060}\\x{FEFF}]","INVISIBLE":"[\\x{200B}\\x{200D}\\x{2060}\\x{FEFF}]","START":"(?:^|[^a-z0-9äöüß])","LOOKALIKES":{"a":"[a\\x{0430}@4]","c":"[c\\x{0441}]","e":"[e\\x{0435}3]","i":"[i\\x{0456}1!|]","k":"[k\\x{043A}]","l":"[l1|]","o":"[o\\x{043E}0]","p":"[p\\x{0440}]","s":"[s\\x{0455}5$]","t":"[t7]","x":"[x\\x{0445}]","y":"[y\\x{0443}]"},"UMLAUTS":{"ä":"(?:ä|a\\x{0308}|ae)","ö":"(?:ö|o\\x{0308}|oe)","ü":"(?:ü|u\\x{0308}|ue)","ß":"(?:ß|ss)"},"PLAIN_UMLAUTS":{"ä":"(?:ä|ae)","ö":"(?:ö|oe)","ü":"(?:ü|ue)","ß":"(?:ß|ss)"}},"paths":{"sieve_dir":"/var/lib/lumen-spamfilter/sieve","imapsieve_dir":"/var/lib/lumen-spamfilter/imapsieve","pipe_dir":"/usr/local/lib/lumen-spamfilter/sieve-pipe","rspamc":"/usr/bin/rspamc"}}
+</script>
+
+<script id="lumen-gen">
+"use strict";
+// The generator: the same output as lumen_spamfilter (tests/test_editor_parity.py checks it).
+var LumenGen = (function () {
+  var DATA = (typeof LUMEN_DATA !== "undefined") ? LUMEN_DATA
+    : JSON.parse(document.getElementById("lumen-data").textContent);
+  var P = DATA.patterns;
+  var RULES = {};
+  DATA.rules.forEach(function (r) { RULES[r.symbol] = r; });
+
+  // --- TOML subset: tables, arrays of tables, strings, numbers, booleans, arrays -------------
+  function parseToml(text) {
+    var root = {}, cur = root, i = 0, line = 1;
+    function err(msg) { throw new Error("TOML syntax: line " + line + ": " + msg); }
+    function ws() { while (i < text.length && (text[i] === " " || text[i] === "\t")) i++; }
+    function wsnl() {
+      for (;;) {
+        ws();
+        if (text[i] === "#") { while (i < text.length && text[i] !== "\n") i++; }
+        if (text[i] === "\r") { i++; continue; }
+        if (text[i] === "\n") { i++; line++; continue; }
+        return;
+      }
+    }
+    function key() {
+      ws();
+      if (text[i] === '"' || text[i] === "'") return str();
+      var m = /^[A-Za-z0-9_-]+/.exec(text.slice(i));
+      if (!m) err("expected a key");
+      i += m[0].length;
+      return m[0];
+    }
+    function dotted() {
+      var parts = [key()];
+      ws();
+      while (text[i] === ".") { i++; parts.push(key()); ws(); }
+      return parts;
+    }
+    function str() {
+      var q = text[i++], out = "";
+      if (q === "'") {
+        var end = text.indexOf("'", i);
+        if (end < 0 || text.slice(i, end).indexOf("\n") >= 0) err("unterminated string");
+        out = text.slice(i, end); i = end + 1; return out;
+      }
+      for (;;) {
+        var c = text[i++];
+        if (c === undefined || c === "\n") err("unterminated string");
+        if (c === '"') return out;
+        if (c === "\\") {
+          var e = text[i++];
+          var map = { n: "\n", t: "\t", r: "\r", '"': '"', "\\": "\\", b: "\b", f: "\f" };
+          if (map[e] !== undefined) out += map[e];
+          else if (e === "u" || e === "U") {
+            var n = e === "u" ? 4 : 8, hex = text.slice(i, i + n);
+            if (!/^[0-9A-Fa-f]+$/.test(hex) || hex.length !== n) err("bad unicode escape");
+            out += String.fromCodePoint(parseInt(hex, 16)); i += n;
+          } else err("bad escape \\" + e);
+        } else out += c;
+      }
+    }
+    function value() {
+      ws();
+      var c = text[i];
+      if (c === '"' || c === "'") {
+        if (text.slice(i, i + 3) === '"""' || text.slice(i, i + 3) === "'''") err("multi-line strings are not supported here");
+        return str();
+      }
+      if (c === "[") {
+        i++; var arr = [];
+        for (;;) {
+          wsnl();
+          if (text[i] === "]") { i++; return arr; }
+          arr.push(value());
+          wsnl();
+          if (text[i] === ",") { i++; continue; }
+          if (text[i] === "]") { i++; return arr; }
+          err("expected , or ] in array");
+        }
+      }
+      if (c === "{") err("inline tables are not supported here");
+      var m = /^(true|false)(?![A-Za-z0-9_])/.exec(text.slice(i));
+      if (m) { i += m[0].length; return m[0] === "true"; }
+      m = /^[+-]?(?:\d[\d_]*)(?:\.\d[\d_]*)?(?:[eE][+-]?\d+)?/.exec(text.slice(i));
+      if (m) {
+        i += m[0].length;
+        var num = Number(m[0].replace(/_/g, ""));
+        return /[.eE]/.test(m[0]) ? { __float: num } : num;
+      }
+      err("unsupported value");
+    }
+    function table(parts, isArray) {
+      var t = root;
+      for (var k = 0; k < parts.length; k++) {
+        var last = k === parts.length - 1;
+        if (last && isArray) {
+          if (t[parts[k]] === undefined) t[parts[k]] = [];
+          if (!Array.isArray(t[parts[k]])) err(parts.join(".") + " is not an array of tables");
+          var obj = {}; t[parts[k]].push(obj); return obj;
+        }
+        if (t[parts[k]] === undefined) t[parts[k]] = {};
+        t = t[parts[k]];
+        if (Array.isArray(t)) t = t[t.length - 1];
+      }
+      return t;
+    }
+    for (;;) {
+      wsnl();
+      if (i >= text.length) break;
+      if (text[i] === "[") {
+        var arr = text[i + 1] === "[";
+        i += arr ? 2 : 1;
+        var parts = dotted();
+        if (text.slice(i, i + (arr ? 2 : 1)) !== (arr ? "]]" : "]")) err("expected ]");
+        i += arr ? 2 : 1;
+        cur = table(parts, arr);
+      } else {
+        var kp = dotted();
+        if (text[i] !== "=") err("expected =");
+        i++;
+        var v = value(), t = cur;
+        for (var k = 0; k < kp.length - 1; k++) { if (t[kp[k]] === undefined) t[kp[k]] = {}; t = t[kp[k]]; }
+        if (t[kp[kp.length - 1]] !== undefined) err("duplicate key " + kp.join("."));
+        t[kp[kp.length - 1]] = v;
+      }
+      ws();
+      if (text[i] === "#") { while (i < text.length && text[i] !== "\n") i++; }
+      if (i < text.length && text[i] !== "\n" && text[i] !== "\r") err("unexpected text after value");
+    }
+    return unwrapFloats(root);
+  }
+  // Floats keep a marker so that 6.0 stays a float (TOML distinguishes 6 and 6.0 only in type).
+  function unwrapFloats(v) {
+    if (Array.isArray(v)) return v.map(unwrapFloats);
+    if (v && typeof v === "object") {
+      if ("__float" in v) return v.__float;
+      var o = {}; Object.keys(v).forEach(function (k) { o[k] = unwrapFloats(v[k]); }); return o;
+    }
+    return v;
+  }
+
+  function tomlValue(v) {
+    if (Array.isArray(v)) return "[" + v.map(tomlValue).join(", ") + "]";
+    if (typeof v === "boolean") return v ? "true" : "false";
+    if (typeof v === "number") return Number.isInteger(v) ? v.toFixed(1) : String(v);
+    return JSON.stringify(String(v));
+  }
+  function writeToml(raw) {
+    var out = ["# lumen-spamfilter configuration, written by the settings editor.", "version = 1", ""];
+    function tbl(name, obj) {
+      var keys = Object.keys(obj || {}).filter(function (k) { return obj[k] !== undefined && obj[k] !== null && obj[k] !== ""; });
+      if (!keys.length) return;
+      out.push("[" + name + "]");
+      keys.forEach(function (k) { out.push(k + " = " + tomlValue(obj[k])); });
+      out.push("");
+    }
+    ["rspamd", "scores", "terms", "tlds", "allow", "block", "delivery"].forEach(function (n) { tbl(n, raw[n]); });
+    (raw.brands || []).forEach(function (b) {
+      out.push("[[brands]]");
+      Object.keys(b).forEach(function (k) { out.push(k + " = " + tomlValue(b[k])); });
+      out.push("");
+    });
+    (raw.mailbox || []).forEach(function (m) {
+      out.push("[[mailbox]]");
+      Object.keys(m).forEach(function (k) {
+        if (m[k] !== undefined && m[k] !== "" && !(Array.isArray(m[k]) && !m[k].length)) out.push(k + " = " + tomlValue(m[k]));
+      });
+      out.push("");
+    });
+    ["training", "digest"].forEach(function (n) { tbl(n, raw[n]); });
+    return out.join("\n");
+  }
+
+  // --- normalise (mirrors lumen_spamfilter/config.py) -----------------------------------------
+  var ADDRESS_RE = /^[A-Za-z0-9._%+=-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
+  var DOMAIN_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+  var TLD_RE = /^[a-z0-9-]{2,63}$/;
+  var FOLDER_RE = /^[A-Za-z0-9 _.\-\/äöüÄÖÜß]{1,100}$/;
+  var TIME_RE = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+  var ACTIONS = ["junk", "redirect", "keep"];
+  var TOP = ["version", "rspamd", "scores", "terms", "brands", "tlds", "allow", "block", "delivery", "mailbox", "training", "digest"];
+
+  function round2(x) { return Math.round(x * 100) / 100; }
+  function isNum(v) { return typeof v === "number" && isFinite(v); }
+  function clone(x) { return JSON.parse(JSON.stringify(x)); }
+  function uniqPush(arr, v) { if (arr.indexOf(v) < 0) arr.push(v); }
+
+  function normalise(raw) {
+    var errors = [];
+    function list(where, v, kind) {
+      if (v === undefined || v === null) return [];
+      if (!Array.isArray(v) || !v.every(function (x) { return typeof x === "string"; })) { errors.push(where + ": must be a list of " + (kind || "string") + "s"); return []; }
+      return v.map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+    }
+    function number(where, v, lo, hi, def) {
+      if (v === undefined || v === null) return def;
+      if (!isNum(v)) { errors.push(where + ": must be a number"); return def; }
+      if (v < lo || v > hi) { errors.push(where + ": must be between " + lo + " and " + hi); return def; }
+      return round2(v);
+    }
+    function bool(where, v, def) {
+      if (v === undefined || v === null) return def;
+      if (typeof v !== "boolean") { errors.push(where + ": must be true or false"); return def; }
+      return v;
+    }
+    function unknown(where, t, allowed) {
+      Object.keys(t).sort().forEach(function (k) { if (allowed.indexOf(k) < 0) errors.push((where ? where + "." : "") + k + ": unknown setting"); });
+    }
+    function table(key) {
+      var v = raw[key];
+      if (v === undefined) return {};
+      if (typeof v !== "object" || Array.isArray(v)) { errors.push(key + ": must be a table"); return {}; }
+      return v;
+    }
+    function domains(where, v) {
+      var out = [];
+      list(where, v, "domain").forEach(function (d) {
+        d = d.toLowerCase().replace(/\.$/, "");
+        if (!DOMAIN_RE.test(d)) errors.push(where + ": " + JSON.stringify(d) + " is not a domain name");
+        else uniqPush(out, d);
+      });
+      return out;
+    }
+    function senders(where, v) {
+      var out = [];
+      list(where, v, "address or domain").forEach(function (s) {
+        s = s.toLowerCase();
+        var ok = s.indexOf("@") >= 0 ? ADDRESS_RE.test(s) : DOMAIN_RE.test(s);
+        if (!ok) errors.push(where + ": " + JSON.stringify(s) + " is not an address or domain");
+        else uniqPush(out, s);
+      });
+      return out;
+    }
+    function threshold(where, v, def) {
+      if (v === undefined || v === null) return def;
+      if (v === "action") return "action";
+      if (!isNum(v)) { errors.push(where + ': must be "action" or a score such as 4.5'); return def; }
+      if (!(v > 0 && v <= 100)) { errors.push(where + ": must be above 0 and at most 100"); return def; }
+      return round2(v);
+    }
+    function policy(where, t, base) {
+      var pol = clone(base);
+      if ("action" in t) { if (ACTIONS.indexOf(t.action) < 0) errors.push(where + ".action: must be one of " + ACTIONS.join(", ")); else pol.action = t.action; }
+      if ("folder" in t) {
+        var f = t.folder;
+        if (typeof f !== "string" || !FOLDER_RE.test(f) || f.indexOf("..") >= 0 || /^[\/.]/.test(f)) errors.push(where + ".folder: letters, digits, spaces and _ . - / only (no leading dot or slash)");
+        else pol.folder = f;
+      }
+      pol.threshold = threshold(where + ".threshold", t.threshold, pol.threshold);
+      pol.digest = bool(where + ".digest", t.digest, pol.digest);
+      pol.keep_copy = bool(where + ".keep_copy", t.keep_copy, pol.keep_copy);
+      if ("redirect_to" in t) {
+        var rt = t.redirect_to;
+        if (typeof rt !== "string" || !ADDRESS_RE.test(rt.trim())) errors.push(where + ".redirect_to: must be an e-mail address");
+        else pol.redirect_to = rt.trim().toLowerCase();
+      }
+      return pol;
+    }
+    if (!raw || typeof raw !== "object") return { errors: ["the configuration must be a TOML table"] };
+    unknown("", raw, TOP);
+    if (raw.version !== undefined && raw.version !== 1) errors.push("version: only version 1 is supported");
+    var rs = table("rspamd");
+    unknown("rspamd", rs, ["local_domains", "group_max_score", "add_header_score", "default_brands"]);
+    var rspamd = {
+      local_domains: domains("rspamd.local_domains", rs.local_domains),
+      group_max_score: number("rspamd.group_max_score", rs.group_max_score, 1, 100, 12.0),
+      add_header_score: number("rspamd.add_header_score", rs.add_header_score, 0.1, 100, 6.0),
+      default_brands: bool("rspamd.default_brands", rs.default_brands, true)
+    };
+    var sc = table("scores"), scores = {};
+    DATA.rules.forEach(function (r) { scores[r.symbol] = r.score; });
+    Object.keys(sc).forEach(function (sym) {
+      if (!RULES[sym]) { errors.push("scores." + sym + ": unknown symbol (see docs/rules.md)"); return; }
+      scores[sym] = number("scores." + sym, sc[sym], -50, 50, scores[sym]);
+    });
+    var tm = table("terms");
+    unknown("terms", tm, ["strong", "weak", "subject", "replace_defaults"]);
+    var replace = bool("terms.replace_defaults", tm.replace_defaults, false), terms = {};
+    [["strong", DATA.defaults.strong], ["weak", DATA.defaults.weak], ["subject", DATA.defaults.subject]].forEach(function (kb) {
+      var extra = list("terms." + kb[0], tm[kb[0]], "word").map(function (t) { return t.toLowerCase(); });
+      extra.forEach(function (t) {
+        if (t.length < 3 || t.length > 60 || !/^[a-zäöüß0-9][a-zäöüß0-9 \-]*$/.test(t)) errors.push("terms." + kb[0] + ": " + JSON.stringify(t) + " must be 3-60 letters, digits, spaces or hyphens");
+      });
+      var merged = replace ? [] : kb[1].slice();
+      terms[kb[0]] = merged.concat(extra.filter(function (t) { return merged.indexOf(t) < 0; }));
+    });
+    var brands = rspamd.default_brands ? clone(DATA.defaults.brands) : [];
+    var rb = raw.brands || [];
+    if (!Array.isArray(rb)) { errors.push("brands: must be an array of tables ([[brands]])"); rb = []; }
+    rb.forEach(function (b, idx) {
+      var where = "brands[" + idx + "]";
+      if (!b || typeof b !== "object") { errors.push(where + ": must be a table"); return; }
+      unknown(where, b, ["name", "domains", "url_tokens"]);
+      if (typeof b.name !== "string" || b.name.trim().length < 2 || b.name.trim().length > 60) { errors.push(where + ".name: must be a name of 2-60 characters"); return; }
+      var doms = domains(where + ".domains", b.domains);
+      if (!doms.length) errors.push(where + ".domains: list at least one domain the brand sends from");
+      var tokens = list(where + ".url_tokens", b.url_tokens).map(function (t) { return t.toLowerCase(); });
+      tokens.forEach(function (t) { if (!/^[a-z0-9][a-z0-9-]{3,40}$/.test(t)) errors.push(where + ".url_tokens: " + JSON.stringify(t) + " must be 4-41 letters, digits or hyphens"); });
+      var name = b.name.trim(), existing = null;
+      brands.forEach(function (x) { if (!existing && x.name.toLowerCase() === name.toLowerCase()) existing = x; });
+      if (existing) {
+        existing.domains = sortedSet(existing.domains.concat(doms));
+        existing.url_tokens = sortedSet(existing.url_tokens.concat(tokens));
+      } else brands.push({ name: name, domains: doms, url_tokens: tokens });
+    });
+    var tl = table("tlds");
+    unknown("tlds", tl, ["extra_high", "extra_medium", "remove"]);
+    var remove = list("tlds.remove", tl.remove).map(function (t) { return t.toLowerCase().replace(/^\.+/, ""); });
+    var tlds = {};
+    [["high", DATA.defaults.tlds_high], ["medium", DATA.defaults.tlds_medium]].forEach(function (kb) {
+      var extra = list("tlds.extra_" + kb[0], tl["extra_" + kb[0]]).map(function (t) { return t.toLowerCase().replace(/^\.+/, ""); });
+      extra.forEach(function (t) { if (!TLD_RE.test(t)) errors.push("tlds.extra_" + kb[0] + ": " + JSON.stringify(t) + " is not a top-level domain"); });
+      var merged = kb[1].filter(function (t) { return remove.indexOf(t) < 0; });
+      tlds[kb[0]] = merged.concat(extra.filter(function (t) { return merged.indexOf(t) < 0 && remove.indexOf(t) < 0; }));
+    });
+    tlds.medium = tlds.medium.filter(function (t) { return tlds.high.indexOf(t) < 0; });
+    var al = table("allow"), bl = table("block");
+    unknown("allow", al, ["verified_domains"]);
+    unknown("block", bl, ["senders", "domains"]);
+    var allow = { verified_domains: domains("allow.verified_domains", al.verified_domains) };
+    var block = { senders: [], domains: domains("block.domains", bl.domains) };
+    list("block.senders", bl.senders).forEach(function (s) {
+      if (!ADDRESS_RE.test(s)) errors.push("block.senders: " + JSON.stringify(s) + " is not an e-mail address");
+      else block.senders.push(s.toLowerCase());
+    });
+    var dl = table("delivery");
+    unknown("delivery", dl, ["action", "folder", "threshold", "digest", "redirect_to", "keep_copy"]);
+    var delivery = policy("delivery", dl, { action: "junk", folder: "Junk", threshold: "action", digest: false, redirect_to: "", keep_copy: false });
+    var mailboxes = [], seen = {};
+    var rm = raw.mailbox || [];
+    if (!Array.isArray(rm)) { errors.push("mailbox: must be an array of tables ([[mailbox]])"); rm = []; }
+    rm.forEach(function (m, idx) {
+      var where = "mailbox[" + idx + "]";
+      if (!m || typeof m !== "object") { errors.push(where + ": must be a table"); return; }
+      unknown(where, m, ["address", "action", "folder", "threshold", "digest", "redirect_to", "keep_copy", "allow_senders", "block_senders"]);
+      if (typeof m.address !== "string" || !ADDRESS_RE.test(m.address.trim())) { errors.push(where + ".address: must be an e-mail address"); return; }
+      var addr = m.address.trim().toLowerCase();
+      if (seen[addr]) { errors.push(where + ".address: " + addr + " is listed twice"); return; }
+      seen[addr] = true;
+      var pol = policy(where, m, delivery);
+      pol.address = addr;
+      pol.allow_senders = senders(where + ".allow_senders", m.allow_senders);
+      pol.block_senders = senders(where + ".block_senders", m.block_senders);
+      if (pol.action === "redirect") {
+        if (!pol.redirect_to) errors.push(where + '.redirect_to: needed for action = "redirect"');
+        else if (pol.redirect_to === addr) errors.push(where + ".redirect_to: must not be the mailbox itself");
+      }
+      mailboxes.push(pol);
+    });
+    mailboxes.forEach(function (m, idx) {
+      if (m.action !== "redirect") return;
+      var target = mailboxes.filter(function (x) { return x.address === m.redirect_to; })[0];
+      if (target && target.action === "redirect") errors.push("mailbox[" + idx + "].redirect_to: " + target.address + " redirects spam too (mail loop)");
+    });
+    var tr = table("training");
+    unknown("training", tr, ["enabled", "mailboxes", "spam_folders", "ham_folders", "spam_mailboxes", "ham_min_age_days", "spam_max_age_days", "max_per_run", "imapsieve"]);
+    var training = {
+      enabled: bool("training.enabled", tr.enabled, true),
+      mailboxes: tr.mailboxes === undefined ? "configured" : tr.mailboxes,
+      spam_folders: list("training.spam_folders", tr.spam_folders), ham_folders: list("training.ham_folders", tr.ham_folders),
+      spam_mailboxes: [],
+      ham_min_age_days: Math.trunc(number("training.ham_min_age_days", tr.ham_min_age_days, 0, 365, 3)),
+      spam_max_age_days: Math.trunc(number("training.spam_max_age_days", tr.spam_max_age_days, 1, 3650, 60)),
+      max_per_run: Math.trunc(number("training.max_per_run", tr.max_per_run, 1, 100000, 500)),
+      imapsieve: bool("training.imapsieve", tr.imapsieve, false)
+    };
+    if (!training.spam_folders.length) training.spam_folders = ["Junk"];
+    if (!training.ham_folders.length) training.ham_folders = ["INBOX"];
+    if (["configured", "all"].indexOf(training.mailboxes) < 0) errors.push('training.mailboxes: must be "configured" or "all"');
+    list("training.spam_mailboxes", tr.spam_mailboxes).forEach(function (s) {
+      if (!ADDRESS_RE.test(s)) errors.push("training.spam_mailboxes: " + JSON.stringify(s) + " is not an e-mail address");
+      else training.spam_mailboxes.push(s.toLowerCase());
+    });
+    ["spam_folders", "ham_folders"].forEach(function (k) {
+      training[k].forEach(function (f) {
+        if (f !== "INBOX" && (!FOLDER_RE.test(f) || f.indexOf("..") >= 0 || /^[\/.]/.test(f))) errors.push("training." + k + ": " + JSON.stringify(f) + " is not a folder name");
+      });
+    });
+    var dg = table("digest");
+    unknown("digest", dg, ["from", "time", "max_items"]);
+    var digest = { from: "", time: "07:00", max_items: 200 };
+    if ("from" in dg) { if (typeof dg.from !== "string" || !ADDRESS_RE.test(dg.from)) errors.push("digest.from: must be an e-mail address"); else digest.from = dg.from.toLowerCase(); }
+    if ("time" in dg) { if (typeof dg.time !== "string" || !TIME_RE.test(dg.time)) errors.push("digest.time: must be HH:MM (24-hour clock)"); else digest.time = dg.time; }
+    digest.max_items = Math.trunc(number("digest.max_items", dg.max_items, 1, 5000, 200));
+    if (mailboxes.some(function (m) { return m.digest; }) && !digest.from) errors.push("digest.from: needed when a mailbox has digest = true");
+    if (errors.length) return { errors: errors };
+    mailboxes.forEach(function (m) { uniqPush(rspamd.local_domains, m.address.split("@")[1]); });
+    return { config: { version: 1, rspamd: rspamd, scores: scores, terms: terms, brands: brands, tlds: tlds, allow: allow, block: block, delivery: delivery, mailboxes: mailboxes, training: training, digest: digest } };
+  }
+  function sortedSet(arr) {
+    var o = []; arr.forEach(function (x) { uniqPush(o, x); });
+    return o.sort(function (a, b) { return a < b ? -1 : a > b ? 1 : 0; });
+  }
+
+  // --- patterns (mirrors lumen_spamfilter/patterns.py) ----------------------------------------
+  function isAlnum(ch) { return /^[\p{L}\p{N}]$/u.test(ch); }
+  function escapeChar(ch) {
+    if (isAlnum(ch)) return ch;
+    return "\\^$.|?*+()[]{}/-".indexOf(ch) >= 0 ? "\\" + ch : ch;
+  }
+  function tolerant(term) {
+    var out = [], chars = Array.from(term.toLowerCase().trim());
+    chars.forEach(function (ch, idx) {
+      if (ch === " ") { out.push(P.SEP + "{1,3}"); return; }
+      if (ch === "-") { out.push(P.SEP + "{0,3}"); return; }
+      out.push(P.UMLAUTS[ch] || P.LOOKALIKES[ch] || escapeChar(ch));
+      var nxt = idx + 1 < chars.length ? chars[idx + 1] : null;
+      if (nxt !== null && nxt !== " " && nxt !== "-") out.push(P.SEP + "{0,2}");
+    });
+    return out.join("");
+  }
+  function plain(term) {
+    return Array.from(term.toLowerCase().trim()).map(function (ch) {
+      if (ch === " ") return "\\s+";
+      if (ch === "-") return "[\\s\\-]?";
+      return P.PLAIN_UMLAUTS[ch] || escapeChar(ch);
+    }).join("");
+  }
+  function alternation(parts) { return "(?:" + parts.join("|") + ")"; }
+  function domainRegex(d) { return d.toLowerCase().replace(/[.\\^$|?*+()[\]{}]/g, "\\$&"); }
+
+  // --- Rspamd (mirrors lumen_spamfilter/render_rspamd.py) -------------------------------------
+  function header(c) {
+    c = c || "#";
+    return c + " " + DATA.marker + "\n" + c + " Written by lumen-spamfilter " + DATA.version + ". Do not edit: change the configuration file\n" +
+      c + ' and run "lumen-spamfilter apply" (docs/rules.md lists every rule).\n';
+  }
+  function uclStr(v) { return '"' + v.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"'; }
+  function uclRe(v) { if (v.indexOf("'") >= 0) throw new Error("regular expression contains a single quote"); return "'" + v + "'"; }
+  function num(v) {
+    if (v !== Math.trunc(v)) return v.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+    return Math.trunc(v) + ".0";
+  }
+  function subjectOrBody(p) { return "(Subject=/" + p + "/iuH | /" + p + "/{mime}iu)"; }
+  function block(sym, fields) {
+    return [sym + " {"].concat(fields.map(function (f) { return "  " + f[0] + " = " + f[1] + ";"; }), ["}", ""]).join("\n");
+  }
+  function meta(cfg, sym) {
+    var r = RULES[sym];
+    return [["score", num(cfg.scores[sym])], ["group", uclStr(r.group)], ["description", uclStr(r.description)]];
+  }
+  function regexpRules(cfg) {
+    var t = cfg.terms, rules = [], S = P.START;
+    function add(k, v) { rules.push([k, v]); }
+    add("LUMEN_PHARMA_STRONG", subjectOrBody(S + alternation(t.strong.map(tolerant))));
+    if (t.weak.length >= 3) add("LUMEN_PHARMA_WEAK_MULTI", "(" + t.weak.map(function (w) { return "/" + S + tolerant(w) + "/{mime}iu"; }).join(" + ") + ") >= 3");
+    add("LUMEN_PHARMA_SUBJECT", "Subject=/" + S + alternation(t.strong.concat(t.subject).map(tolerant)) + "/iuH");
+    var obf = t.strong.concat(t.weak.filter(function (w) { return t.strong.indexOf(w) < 0; })).map(function (w) {
+      return "(" + subjectOrBody(S + tolerant(w)) + " & !" + subjectOrBody(S + plain(w)) + ")";
+    });
+    add("LUMEN_OBFUSCATED_TERM", obf.join(" | "));
+    add("LUMEN_ZERO_WIDTH_IN_WORD", subjectOrBody("[a-zäöüß]" + P.INVISIBLE + "+[a-zäöüß]"));
+    var local = cfg.rspamd.local_domains;
+    if (local.length) {
+      var doms = alternation(local.map(domainRegex));
+      add("LUMEN_SUBJECT_RCPT_DOMAIN", "Subject=/^\\s*(?:www\\.)?" + doms + "\\s*[,:;!\\-–]|[,:;\\-–]\\s*(?:www\\.)?" + doms + "\\s*$/iuH");
+      add("LUMEN_BODY_RCPT_DOMAIN_GREETING", "/(?:^|\\s)(?:hallo|hello|hi|hey|liebe[rs]?|sehr\\s+geehrte[rs]?|dear|guten\\s+tag)\\s+(?:www\\.)?" + doms + "(?:$|[\\s,!:.])/{mime}iu");
+    }
+    add("LUMEN_SUBJECT_DOMAIN_GREETING", "Subject=/^\\s*[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9-]+)*\\.[a-z]{2,24}\\s*,/iH");
+    Object.keys(DATA.defaults.phishing).forEach(function (sym) {
+      add(sym, DATA.defaults.phishing[sym].map(function (p) { return subjectOrBody(alternation(p)); }).join(" & "));
+    });
+    var url = "^[a-z][a-z0-9+.\\-]*:\\/\\/";
+    if (cfg.tlds.high.length) add("LUMEN_URL_TLD_HIGH", "/" + url + "(?:[^\\/?#@\\s]*@)?[^\\/?#:\\s]+\\." + alternation(cfg.tlds.high.map(domainRegex)) + "\\.?(?::[0-9]+)?(?:[\\/?#]|$)/{url}i");
+    add("LUMEN_URL_USERINFO", "/" + url + "[^\\/?#@\\s]+@[^\\/?#\\s]+/{url}i");
+    var tokens = [];
+    cfg.brands.forEach(function (b) { b.url_tokens.forEach(function (x) { uniqPush(tokens, x); }); });
+    tokens = sortedSet(tokens);
+    if (tokens.length) add("LUMEN_URL_BRAND_TOKEN", "/" + url + "(?:[^\\/?#@\\s]*@)?[^\\/?#\\s]*" + alternation(tokens.map(domainRegex)) + "/{url}i");
+    return rules;
+  }
+  function composites(cfg) {
+    var out = [["LUMEN_BRAND_SPOOF", "LUMEN_BRAND_NAME & !LUMEN_BRAND_DOMAIN"],
+      ["LUMEN_AUTH_ON_THROWAWAY", "LUMEN_FROM_TLD_HIGH & (R_DKIM_ALLOW | DMARC_POLICY_ALLOW)"],
+      ["LUMEN_ALLOW_VERIFIED", "LUMEN_ALLOW_LISTED & DMARC_POLICY_ALLOW"]];
+    if (cfg.brands.some(function (b) { return b.url_tokens.length; })) out.push(["LUMEN_URL_BRAND_LOOKALIKE", "LUMEN_URL_BRAND_TOKEN & !LUMEN_URL_BRAND_HOST"]);
+    return out;
+  }
+  function brandRegex(name) { return "/" + P.START + tolerant(name) + "(?:$|[^a-z0-9äöüß])/iu"; }
+  function suffixRegex(d) { return "/(?:^|\\.)" + domainRegex(d) + "$/i"; }
+  function maps(cfg) {
+    var bd = [];
+    cfg.brands.forEach(function (b) { b.domains.forEach(function (d) { uniqPush(bd, d); }); });
+    return [
+      ["brand_names.map", cfg.brands.map(function (b) { return "# " + b.name + "\n" + brandRegex(b.name); })],
+      ["brand_domains.map", sortedSet(bd)],
+      ["tlds_high.map", cfg.tlds.high.map(function (t) { return "/\\." + domainRegex(t) + "$/i"; })],
+      ["tlds_medium.map", cfg.tlds.medium.map(function (t) { return "/\\." + domainRegex(t) + "$/i"; })],
+      ["allow_verified_domains.map", cfg.allow.verified_domains.map(suffixRegex)],
+      ["block_senders.map", cfg.block.senders],
+      ["block_domains.map", cfg.block.domains.map(suffixRegex)]
+    ];
+  }
+  function multimapRules() {
+    function m(n) { return uclStr(DATA.map_ref + "/" + n); }
+    var fm = [["type", '"from"'], ["extract_from", '"mime"']];
+    function sel(s, map) { return [["type", '"selector"'], ["selector", uclStr(s)], ["map", m(map)], ["regexp", "true"]]; }
+    return [
+      ["LUMEN_BRAND_NAME", sel("from('mime'):name", "brand_names.map")],
+      ["LUMEN_BRAND_DOMAIN", fm.concat([["filter", '"email:domain:tld"'], ["map", m("brand_domains.map")]])],
+      ["LUMEN_URL_BRAND_HOST", [["type", '"url"'], ["filter", '"tld"'], ["map", m("brand_domains.map")]]],
+      ["LUMEN_FROM_TLD_HIGH", sel("from('mime'):domain", "tlds_high.map")],
+      ["LUMEN_FROM_TLD_MEDIUM", sel("from('mime'):domain", "tlds_medium.map")],
+      ["LUMEN_ALLOW_LISTED", sel("from('mime'):domain", "allow_verified_domains.map")],
+      ["LUMEN_BLOCK_SENDER", fm.concat([["filter", '"email:addr"'], ["map", m("block_senders.map")]])],
+      ["LUMEN_BLOCK_DOMAIN", sel("from('mime'):domain", "block_domains.map")]
+    ];
+  }
+  function renderRspamd(cfg) {
+    var files = {}, out = [header()];
+    regexpRules(cfg).forEach(function (r) { out.push(block(r[0], [["re", uclRe(r[1])]].concat(meta(cfg, r[0]), [["one_shot", "true"]]))); });
+    files["override.d/regexp.conf"] = out.join("\n");
+    out = [header()];
+    multimapRules().forEach(function (r) { out.push(block(r[0], r[1].concat(meta(cfg, r[0])))); });
+    files["override.d/multimap.conf"] = out.join("\n");
+    out = [header()];
+    composites(cfg).forEach(function (r) { out.push(block(r[0], [["expression", uclStr(r[1])]].concat(meta(cfg, r[0]), [["policy", '"leave"']]))); });
+    files["override.d/composites.conf"] = out.join("\n");
+    files["local.d/groups.conf"] = header() + "\n" + ["group " + uclStr(DATA.group) + " {", '  description = "lumen-spamfilter content rules";',
+      "  max_score = " + num(cfg.rspamd.group_max_score) + ";", "}", "", "group " + uclStr(DATA.policy_group) + " {",
+      '  description = "lumen-spamfilter allow and block lists";', "}", ""].join("\n");
+    maps(cfg).forEach(function (m) { files[DATA.map_dir + "/" + m[0]] = header() + m[1].map(function (l) { return l + "\n"; }).join(""); });
+    return files;
+  }
+
+  // --- Sieve (mirrors lumen_spamfilter/render_sieve.py) ---------------------------------------
+  var REQUIRE = ["fileinto", "mailbox", "regex", "variables", "relational", "comparator-i;ascii-numeric", "copy"];
+  function sstr(v) { return '"' + v.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"'; }
+  function slist(vs) { return "[" + vs.map(sstr).join(", ") + "]"; }
+  function sieveHeader(addr) {
+    return "# " + DATA.marker + "\n# Written by lumen-spamfilter " + DATA.version + " for " + addr + ".\n" +
+      '# Do not edit: change the configuration file and run "lumen-spamfilter apply".\n';
+  }
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  function spamTest(th) {
+    if (th === "action") return ['header :regex "X-Spam-Status" "^Yes, score="', "Rspamd's action is add header or higher (X-Spam-Status: Yes)"];
+    var whole = Math.trunc(th), frac = Math.round((th - whole) * 100);
+    var test = 'allof (header :regex "X-Spam-Status" "^(Yes|No), score=([0-9]+)[.]([0-9][0-9])",\n' +
+      '         anyof (string :value "gt" :comparator "i;ascii-numeric" "${2}" "' + whole + '",\n' +
+      '                allof (string :value "eq" :comparator "i;ascii-numeric" "${2}" "' + whole + '",\n' +
+      '                       string :value "ge" :comparator "i;ascii-numeric" "${3}" "' + pad2(frac) + '")))';
+    return [test, "X-Spam-Status score is " + th.toFixed(2) + " or more"];
+  }
+  function senderTests(entries) {
+    var a = entries.filter(function (e) { return e.indexOf("@") >= 0; }), d = entries.filter(function (e) { return e.indexOf("@") < 0; }), t = [];
+    if (a.length) t.push('address :all :is "from" ' + slist(a));
+    if (d.length) t.push('address :domain :is "from" ' + slist(d));
+    return t;
+  }
+  function anyof(tests, indent) { return tests.length === 1 ? tests[0] : "anyof (" + tests.join(",\n" + indent + "       ") + ")"; }
+  function mailboxScript(mb) {
+    var out = [sieveHeader(mb.address)], action = mb.action;
+    if (action === "keep" && !mb.block_senders.length) { out.push("# Policy: keep (no spam filing for this mailbox).\n"); return out.join(""); }
+    var st = spamTest(mb.threshold), test = st[0], rule = st[1], what, body;
+    if (action === "junk") { what = 'file into "' + mb.folder + '"'; body = ["fileinto :create " + sstr(mb.folder) + ";", "stop;"]; }
+    else if (action === "redirect") {
+      what = "redirect to " + mb.redirect_to + (mb.keep_copy ? ' and keep a copy in "' + mb.folder + '"' : "");
+      body = mb.keep_copy ? ["redirect :copy " + sstr(mb.redirect_to) + ";", "fileinto :create " + sstr(mb.folder) + ";", "stop;"]
+        : ["redirect " + sstr(mb.redirect_to) + ";", "stop;"];
+    } else { what = "keep in the inbox"; body = []; }
+    out.push("# Spam: " + rule + " -> " + what + ".\n");
+    if (mb.block_senders.length) out.push('# Blocked senders -> file into "' + mb.folder + '".\n');
+    if (mb.allow_senders.length) out.push("# Allowed senders are never filed as spam by this script.\n");
+    out.push("require " + slist(REQUIRE) + ";\n\n");
+    var ind = mb.allow_senders.length ? "  " : "", blocks = [];
+    if (mb.block_senders.length) blocks.push(ind + "if " + anyof(senderTests(mb.block_senders), ind) + " {\n" + ind + "  fileinto :create " + sstr(mb.folder) + ";\n" + ind + "  stop;\n" + ind + "}\n");
+    if (body.length) blocks.push(ind + "if " + test.split("\n").join("\n" + ind + "   ") + " {\n" + body.map(function (b) { return ind + "  " + b + "\n"; }).join("") + ind + "}\n");
+    if (mb.allow_senders.length) out.push("if not " + anyof(senderTests(mb.allow_senders), "") + " {\n" + blocks.join("") + "}\n");
+    else out.push(blocks.join(""));
+    return out.join("");
+  }
+  function renderSieve(cfg) {
+    var files = {};
+    cfg.mailboxes.forEach(function (mb) { var p = mb.address.split("@"); files[p[1] + "/" + p[0] + ".sieve"] = mailboxScript(mb); });
+    return files;
+  }
+  function renderDovecot(cfg) {
+    var paths = DATA.paths, lines = [header().replace(/\n$/, ""), "", "plugin {", '  # Per-mailbox spam delivery, written by "lumen-spamfilter apply".',
+      "  sieve_before = " + paths.sieve_dir + "/%d/%n.sieve"];
+    if (cfg.training.imapsieve) {
+      var f = cfg.training.spam_folders[0];
+      lines.push("", "  # Learning hooks: moving mail into the spam folder learns spam, moving it out learns ham.",
+        "  sieve_plugins = sieve_imapsieve sieve_extprograms", "  sieve_global_extensions = +vnd.dovecot.pipe +vnd.dovecot.environment",
+        "  sieve_pipe_bin_dir = " + paths.pipe_dir, "  imapsieve_mailbox1_name = " + f, "  imapsieve_mailbox1_causes = COPY APPEND",
+        "  imapsieve_mailbox1_before = file:" + paths.imapsieve_dir + "/report-spam.sieve", "  imapsieve_mailbox2_name = *",
+        "  imapsieve_mailbox2_from = " + f, "  imapsieve_mailbox2_causes = COPY", "  imapsieve_mailbox2_before = file:" + paths.imapsieve_dir + "/report-ham.sieve");
+    }
+    lines.push("}");
+    if (cfg.training.imapsieve) lines.push("", "protocol imap {", "  mail_plugins = $mail_plugins imap_sieve", "}");
+    return lines.join("\n") + "\n";
+  }
+  function renderAll(text) {
+    var raw = parseToml(text), n = normalise(raw);
+    if (n.errors) return { errors: n.errors };
+    var files = {}, rs = renderRspamd(n.config), sv = renderSieve(n.config);
+    Object.keys(rs).forEach(function (k) { files["rspamd/" + k] = rs[k]; });
+    Object.keys(sv).forEach(function (k) { files["sieve/" + k] = sv[k]; });
+    files["dovecot/local.conf"] = renderDovecot(n.config);
+    return { files: files, config: n.config };
+  }
+  return { parseToml: parseToml, writeToml: writeToml, normalise: normalise, renderAll: renderAll, DATA: DATA };
+})();
+if (typeof module !== "undefined") module.exports = LumenGen;
+</script>
+
+<script id="lumen-ui">
+"use strict";
+(function () {
+  if (typeof document === "undefined") return;
+  var EXAMPLE = 'version = 1\n\n[rspamd]\nlocal_domains = ["example.com"]\n\n[delivery]\naction = "junk"\nfolder = "Junk"\nthreshold = "action"\n\n[[mailbox]]\naddress = "postmaster@example.com"\n\n[digest]\nfrom = "postmaster@example.com"\ntime = "07:00"\n';
+  var raw = {}, current = "", activeTab = "config.toml";
+  var $ = function (id) { return document.getElementById(id); };
+
+  function get(path) { var o = raw; path.split(".").forEach(function (k) { o = (o || {})[k]; }); return o; }
+  function set(path, v) {
+    var parts = path.split("."), o = raw;
+    parts.slice(0, -1).forEach(function (k) { if (!o[k] || typeof o[k] !== "object") o[k] = {}; o = o[k]; });
+    if (v === undefined || v === "" || (Array.isArray(v) && !v.length)) delete o[parts[parts.length - 1]];
+    else o[parts[parts.length - 1]] = v;
+  }
+  function lines(v) { return v.split(/[\n,]/).map(function (x) { return x.trim(); }).filter(Boolean); }
+  function threshold(v) { v = v.trim(); if (!v) return undefined; if (v === "action") return "action"; var n = Number(v); return isNaN(n) ? v : n; }
+
+  function fillForm() {
+    document.querySelectorAll("[data-list]").forEach(function (el) { el.value = (get(el.dataset.list) || []).join("\n"); });
+    document.querySelectorAll("[data-num]").forEach(function (el) { var v = get(el.dataset.num); el.value = v === undefined ? "" : v; });
+    document.querySelectorAll("[data-str]").forEach(function (el) { var v = get(el.dataset.str); if (v !== undefined) el.value = v; else if (el.tagName === "INPUT") el.value = ""; else el.selectedIndex = 0; });
+    document.querySelectorAll("[data-bool]").forEach(function (el) { var v = get(el.dataset.bool); el.value = v === undefined ? el.options[0].value : String(v); });
+    document.querySelectorAll("[data-threshold]").forEach(function (el) { var v = get(el.dataset.threshold); el.value = v === undefined ? "" : v; });
+    $("brands").value = (raw.brands || []).map(function (b) { return b.name + " = " + (b.domains || []).join(", "); }).join("\n");
+    renderMailboxes();
+    renderScores();
+  }
+  function readForm() {
+    document.querySelectorAll("[data-list]").forEach(function (el) { set(el.dataset.list, lines(el.value)); });
+    document.querySelectorAll("[data-num]").forEach(function (el) { set(el.dataset.num, el.value === "" ? undefined : Number(el.value)); });
+    document.querySelectorAll("[data-str]").forEach(function (el) { set(el.dataset.str, el.value.trim() || undefined); });
+    document.querySelectorAll("[data-bool]").forEach(function (el) { set(el.dataset.bool, el.value === "true"); });
+    document.querySelectorAll("[data-threshold]").forEach(function (el) { set(el.dataset.threshold, threshold(el.value)); });
+    var brands = $("brands").value.split("\n").map(function (l) { return l.trim(); }).filter(Boolean).map(function (l) {
+      var p = l.split("="); return { name: p[0].trim(), domains: lines(p.slice(1).join("=")) };
+    });
+    if (brands.length) raw.brands = brands; else delete raw.brands;
+    var mbs = [];
+    document.querySelectorAll(".mailbox").forEach(function (box) {
+      var m = {};
+      box.querySelectorAll("[data-mb]").forEach(function (el) {
+        var k = el.dataset.mb, v = el.value.trim();
+        if (k === "allow_senders" || k === "block_senders") { if (lines(v).length) m[k] = lines(v); }
+        else if (k === "threshold") { if (v) m[k] = threshold(v); }
+        else if (k === "digest" || k === "keep_copy") { if (v === "true") m[k] = true; }
+        else if (v && !(k === "action" && v === "default")) m[k] = v;
+      });
+      mbs.push(m);
+    });
+    if (mbs.length) raw.mailbox = mbs; else delete raw.mailbox;
+    var sc = {};
+    document.querySelectorAll("[data-score]").forEach(function (el) { if (el.value !== "") sc[el.dataset.score] = Number(el.value); });
+    if (Object.keys(sc).length) raw.scores = sc; else delete raw.scores;
+  }
+  function field(label, key, value, kind) {
+    var id = "mb" + Math.random().toString(36).slice(2), wrap = document.createElement("div");
+    var lab = document.createElement("label"); lab.htmlFor = id; lab.textContent = label; wrap.appendChild(lab);
+    var el;
+    if (kind && kind.length) { el = document.createElement("select"); kind.forEach(function (o) { var op = document.createElement("option"); op.textContent = o; el.appendChild(op); }); el.value = value || kind[0]; }
+    else if (kind === "area") { el = document.createElement("textarea"); el.value = value || ""; }
+    else { el = document.createElement("input"); el.type = "text"; el.value = value === undefined ? "" : value; }
+    el.id = id; el.dataset.mb = key; el.addEventListener("input", update); el.addEventListener("change", update);
+    wrap.appendChild(el); return wrap;
+  }
+  function renderMailboxes() {
+    var host = $("mailboxes"); host.textContent = "";
+    (raw.mailbox || []).forEach(function (m, idx) {
+      var box = document.createElement("div"); box.className = "mailbox";
+      var row = document.createElement("div"); row.className = "row";
+      row.appendChild(field("Address", "address", m.address));
+      row.appendChild(field("Action", "action", m.action || "default", ["default", "junk", "redirect", "keep"]));
+      row.appendChild(field("Folder", "folder", m.folder));
+      row.appendChild(field("Threshold", "threshold", m.threshold));
+      row.appendChild(field("Redirect to", "redirect_to", m.redirect_to));
+      row.appendChild(field("Keep a copy", "keep_copy", String(!!m.keep_copy), ["false", "true"]));
+      row.appendChild(field("Daily digest", "digest", String(!!m.digest), ["false", "true"]));
+      box.appendChild(row);
+      var row2 = document.createElement("div"); row2.className = "row";
+      row2.appendChild(field("Allowed senders", "allow_senders", (m.allow_senders || []).join("\n"), "area"));
+      row2.appendChild(field("Blocked senders", "block_senders", (m.block_senders || []).join("\n"), "area"));
+      box.appendChild(row2);
+      var del = document.createElement("button"); del.className = "danger"; del.textContent = "Remove mailbox";
+      del.addEventListener("click", function () { readForm(); raw.mailbox.splice(idx, 1); renderMailboxes(); update(); });
+      box.appendChild(del);
+      host.appendChild(box);
+    });
+  }
+  function renderScores() {
+    var body = $("scores"); body.textContent = "";
+    LumenGen.DATA.rules.forEach(function (r) {
+      var tr = document.createElement("tr"), a = document.createElement("td"), b = document.createElement("td"), c = document.createElement("td");
+      a.innerHTML = "<code></code><div class='hint'></div>"; a.firstChild.textContent = r.symbol; a.lastChild.textContent = r.description;
+      b.textContent = r.score;
+      var inp = document.createElement("input"); inp.type = "number"; inp.step = "0.5"; inp.dataset.score = r.symbol;
+      inp.setAttribute("aria-label", "Score for " + r.symbol);
+      var v = (raw.scores || {})[r.symbol]; inp.value = v === undefined ? "" : v;
+      inp.addEventListener("input", update);
+      c.appendChild(inp); tr.appendChild(a); tr.appendChild(b); tr.appendChild(c); body.appendChild(tr);
+    });
+  }
+  function showTabs(files) {
+    var tabs = $("tabs"), names = ["config.toml"].concat(Object.keys(files || {}));
+    if (names.indexOf(activeTab) < 0) activeTab = "config.toml";
+    tabs.textContent = "";
+    names.forEach(function (n) {
+      var bt = document.createElement("button"); bt.textContent = n; bt.className = n === activeTab ? "" : "secondary";
+      bt.addEventListener("click", function () { activeTab = n; showTabs(files); });
+      tabs.appendChild(bt);
+    });
+    $("out").textContent = activeTab === "config.toml" ? current : files[activeTab];
+  }
+  function update() {
+    readForm();
+    current = LumenGen.writeToml(raw);
+    var res;
+    try { res = LumenGen.renderAll(current); } catch (e) { res = { errors: [String(e.message || e)] }; }
+    var box = $("errors");
+    if (res.errors) {
+      box.className = "show"; box.textContent = "";
+      var h = document.createElement("h2"); h.textContent = "The configuration is not valid"; box.appendChild(h);
+      var ul = document.createElement("ul");
+      res.errors.forEach(function (e) { var li = document.createElement("li"); li.textContent = e; ul.appendChild(li); });
+      box.appendChild(ul); $("ok").textContent = ""; showTabs({});
+    } else { box.className = ""; $("ok").textContent = "valid"; showTabs(res.files); }
+  }
+  function load(text) {
+    try { raw = LumenGen.parseToml(text); } catch (e) { alert(e.message); return; }
+    fillForm(); update();
+  }
+  document.querySelectorAll("input, select, textarea").forEach(function (el) {
+    if (el.id === "file" || el.id === "paste") return;
+    el.addEventListener("input", update); el.addEventListener("change", update);
+  });
+  $("file").addEventListener("change", function (ev) {
+    var f = ev.target.files[0]; if (!f) return;
+    var r = new FileReader(); r.onload = function () { load(String(r.result)); }; r.readAsText(f);
+  });
+  $("load-paste").addEventListener("click", function () { load($("paste").value); });
+  $("reset").addEventListener("click", function () { load(EXAMPLE); });
+  $("add-mailbox").addEventListener("click", function () { readForm(); (raw.mailbox = raw.mailbox || []).push({ address: "" }); renderMailboxes(); update(); });
+  $("download").addEventListener("click", function () {
+    update();
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([current], { type: "text/plain" }));
+    a.download = "config.toml"; document.body.appendChild(a); a.click(); a.remove();
+  });
+  load(EXAMPLE);
+})();
+</script>
+</body>
+</html>

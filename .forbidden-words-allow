@@ -21,3 +21,5 @@ lumen_spamfilter/catalog.py | * | rule descriptions quote the spam wording each 
 tests/corpus/* | * | synthetic spam and ham test messages: they quote the wording the rules must detect
 tests/corpus/* | email | synthetic sender addresses on made-up spam domains (.invalid and obviously fake names)
 tests/test_generator.py | * | test inputs: the brand names and obfuscated words the patterns must match
+editor/settings.html | * | the embedded copy of the rule data (brand names, spam words) the editor needs offline
+tests/test_editor_parity.py | * | a test configuration that extends a built-in brand
